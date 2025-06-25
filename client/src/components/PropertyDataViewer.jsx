@@ -4,10 +4,6 @@ import {
   Card,
   CardContent,
   Typography,
-  Accordion,
-  AccordionSummary,
-  AccordionDetails,
-  Grid,
   Chip,
   Table,
   TableBody,
@@ -15,7 +11,6 @@ import {
   TableContainer,
   TableRow,
   Paper,
-  Divider,
   Tabs,
   Tab,
   TextField,
@@ -26,8 +21,7 @@ import {
 import {
   ExpandMore as ExpandMoreIcon,
   Search as SearchIcon,
-  Clear as ClearIcon,
-  Info as InfoIcon
+  Clear as ClearIcon
 } from '@mui/icons-material';
 
 // Define data categories with their corresponding field mappings

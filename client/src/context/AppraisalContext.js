@@ -21,7 +21,7 @@ export const AppraisalProvider = ({ children }) => {
       console.warn('Legacy subjectProperty format detected. Resetting appraisal state.');
       resetAppraisal();
     }
-  }, []); // Run only once on component mount
+  }, [subjectProperty, resetAppraisal]); // Add missing dependencies
 
   const [selectedComps, setSelectedComps] = useState(() => {
     try {

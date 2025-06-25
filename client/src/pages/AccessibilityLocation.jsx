@@ -10,10 +10,6 @@ import {
   FormGroup,
   FormControlLabel,
   Checkbox,
-  MenuItem,
-  Select,
-  InputLabel,
-  Slider,
   Rating
 } from '@mui/material';
 
