@@ -153,6 +153,12 @@ ehthumbs.db
 **/*.node
 **/registry.json
 
+# Specific problematic files
+valuelyst-tenant-management.bundle
+**/.cache/
+**/node_modules/.cache/
+**/*.pack
+
 # Compressed files
 *.zip
 *.rar
