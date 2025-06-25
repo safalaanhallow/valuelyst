@@ -6,10 +6,6 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import CssBaseline from '@mui/material/CssBaseline';
 import { Container, Typography, Box, AppBar, Toolbar } from '@mui/material';
 import axios from 'axios';
-
-// Configure axios default base URL
-axios.defaults.baseURL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:3001';
-
 import ComparablePropertiesSelection from './pages/ComparablePropertiesSelection';
 import ValuationResults from './pages/ValuationResults';
 import WorkflowNavigator from './pages/WorkflowNavigator';
@@ -26,6 +22,9 @@ import ValuationMetrics from './pages/ValuationMetrics';
 import TenantDetails from './pages/TenantDetails';
 import AdjustmentsPage from './pages/AdjustmentsPage';
 import { AppraisalProvider } from './context/AppraisalContext';
+
+// Configure axios default base URL
+axios.defaults.baseURL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:3001';
 
 // Create a theme instance.
 const theme = createTheme({
