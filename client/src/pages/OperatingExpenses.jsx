@@ -15,50 +15,50 @@ import {
   TableHead,
   TableRow
 } from '@mui/material';
-import { createFieldNameHelper, createChangeHandler } from '../utils/formHelpers';
+import { useEffect } from 'react';
 
 const OperatingExpenses = ({ formik }) => {
-  // Create helper functions for this component
-  const fieldName = createFieldNameHelper('expenses');
-  const handleChange = createChangeHandler(formik);
-  
-  // Ensure values is initialized
-  const values = formik.values || {};
-  // Calculate totals
-  const calculateTotalOpEx = () => {
-    const expenses = formik.values.operatingExpenses || {};
-    let total = 0;
-    
-    // Add all expense categories
-    total += parseFloat(expenses.taxes || 0);
-    total += parseFloat(expenses.insurance || 0);
-    total += parseFloat(expenses.utilities || 0);
-    total += parseFloat(expenses.maintenance || 0);
-    total += parseFloat(expenses.management || 0);
-    total += parseFloat(expenses.administrative || 0);
-    total += parseFloat(expenses.landscaping || 0);
-    total += parseFloat(expenses.security || 0);
-    total += parseFloat(expenses.cleaning || 0);
-    total += parseFloat(expenses.reserves || 0);
-    total += parseFloat(expenses.other || 0);
-    
-    return total.toFixed(2);
-  };
+  const { values, setFieldValue } = formik;
+  const { income, vacancy, expenses, physicalAttributes } = values;
 
-  // Calculate expense ratios
+  // Calculate PGI, EGI
+  const potentialGrossIncome = (
+    parseFloat(income.baseRent || 0) +
+    parseFloat(income.expenseReimbursements || 0) +
+    parseFloat(income.percentageRent || 0) +
+    parseFloat(income.otherIncome || 0)
+  );
+
+  const vacancyLoss = potentialGrossIncome * (parseFloat(vacancy.vacancyRate || 0) / 100);
+  const creditLoss = parseFloat(vacancy.creditLossAmount || 0);
+
+  const effectiveGrossIncome = potentialGrossIncome - vacancyLoss - creditLoss;
+
+  // Calculate Total OpEx
+  const totalOperatingExpenses = Object.values(expenses.operatingExpenses || {}).reduce(
+    (total, value) => total + parseFloat(value || 0),
+    0
+  );
+
+  // Calculate NOI
+  const netOperatingIncome = effectiveGrossIncome - totalOperatingExpenses;
+
+  // Update NOI in formik state
+  useEffect(() => {
+    setFieldValue('expenses.netOperatingIncome', netOperatingIncome.toFixed(2));
+  }, [netOperatingIncome, setFieldValue]);
+
+
+  // Helper functions for display
   const calculateExpenseRatio = (expenseValue) => {
-    const effectiveGrossIncome = parseFloat(formik.values.effectiveGrossIncome || 0);
     if (effectiveGrossIncome === 0) return '0.00';
-    
     const ratio = (parseFloat(expenseValue || 0) / effectiveGrossIncome) * 100;
     return ratio.toFixed(2);
   };
 
-  // Calculate expense per square foot
   const calculateExpensePerSqFt = (expenseValue) => {
-    const buildingSize = parseFloat(formik.values.buildingSize || 0);
+    const buildingSize = parseFloat(physicalAttributes.buildingSize || 0);
     if (buildingSize === 0) return '0.00';
-    
     const perSqFt = parseFloat(expenseValue || 0) / buildingSize;
     return perSqFt.toFixed(2);
   };
@@ -78,11 +78,11 @@ const OperatingExpenses = ({ formik }) => {
           <TextField
             fullWidth
             id="buildingSize"
-            name={fieldName('buildingSize')}
+            name="physicalAttributes.buildingSize"
             label="Building Size (sq ft)"
             type="number"
-            value={values.buildingSize  || ''}
-            onChange={handleChange}
+            value={values.physicalAttributes.buildingSize  || ''}
+            disabled
           />
         </Grid>
         
@@ -90,11 +90,11 @@ const OperatingExpenses = ({ formik }) => {
           <TextField
             fullWidth
             id="effectiveGrossIncome"
-            name={fieldName('effectiveGrossIncome')}
+            name="effectiveGrossIncome"
             label="Effective Gross Income"
             type="number"
             InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
-            value={values.effectiveGrossIncome  || ''}
+            value={effectiveGrossIncome.toFixed(2)}
             disabled
           />
         </Grid>
@@ -103,11 +103,13 @@ const OperatingExpenses = ({ formik }) => {
           <TextField
             fullWidth
             id="expenseYear"
-            name={fieldName('expenseYear')}
+            name="expenses.expenseYear"
             label="Expense Year"
             type="number"
-            value={formik.values.expenseYear || new Date().getFullYear()}
-            onChange={handleChange}
+            value={values.expenses.expenseYear || ''}
+            onChange={formik.handleChange}
+            error={formik.touched.expenses?.expenseYear && Boolean(formik.errors.expenses?.expenseYear)}
+            helperText={formik.touched.expenses?.expenseYear && formik.errors.expenses?.expenseYear}
           />
         </Grid>
 
@@ -128,262 +130,43 @@ const OperatingExpenses = ({ formik }) => {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {/* Real Estate Taxes */}
-                <TableRow>
-                  <TableCell>Real Estate Taxes</TableCell>
-                  <TableCell align="right">
-                    <TextField
-                      size="small"
-                      id="operatingExpenses.taxes"
-                      name={fieldName('operatingExpenses.taxes')}
-                      type="number"
-                      InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
-                      value={values.operatingExpenses?.taxes  || ''}
-                      onChange={handleChange}
-                    />
-                  </TableCell>
-                  <TableCell align="right">
-                    {calculateExpenseRatio(formik.values.operatingExpenses?.taxes)}%
-                  </TableCell>
-                  <TableCell align="right">
-                    ${calculateExpensePerSqFt(formik.values.operatingExpenses?.taxes)}
-                  </TableCell>
-                </TableRow>
-                
-                {/* Insurance */}
-                <TableRow>
-                  <TableCell>Insurance</TableCell>
-                  <TableCell align="right">
-                    <TextField
-                      size="small"
-                      id="operatingExpenses.insurance"
-                      name={fieldName('operatingExpenses.insurance')}
-                      type="number"
-                      InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
-                      value={values.operatingExpenses?.insurance  || ''}
-                      onChange={handleChange}
-                    />
-                  </TableCell>
-                  <TableCell align="right">
-                    {calculateExpenseRatio(formik.values.operatingExpenses?.insurance)}%
-                  </TableCell>
-                  <TableCell align="right">
-                    ${calculateExpensePerSqFt(formik.values.operatingExpenses?.insurance)}
-                  </TableCell>
-                </TableRow>
-                
-                {/* Utilities */}
-                <TableRow>
-                  <TableCell>Utilities</TableCell>
-                  <TableCell align="right">
-                    <TextField
-                      size="small"
-                      id="operatingExpenses.utilities"
-                      name={fieldName('operatingExpenses.utilities')}
-                      type="number"
-                      InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
-                      value={values.operatingExpenses?.utilities  || ''}
-                      onChange={handleChange}
-                    />
-                  </TableCell>
-                  <TableCell align="right">
-                    {calculateExpenseRatio(formik.values.operatingExpenses?.utilities)}%
-                  </TableCell>
-                  <TableCell align="right">
-                    ${calculateExpensePerSqFt(formik.values.operatingExpenses?.utilities)}
-                  </TableCell>
-                </TableRow>
-                
-                {/* Repairs & Maintenance */}
-                <TableRow>
-                  <TableCell>Repairs & Maintenance</TableCell>
-                  <TableCell align="right">
-                    <TextField
-                      size="small"
-                      id="operatingExpenses.maintenance"
-                      name={fieldName('operatingExpenses.maintenance')}
-                      type="number"
-                      InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
-                      value={values.operatingExpenses?.maintenance  || ''}
-                      onChange={handleChange}
-                    />
-                  </TableCell>
-                  <TableCell align="right">
-                    {calculateExpenseRatio(formik.values.operatingExpenses?.maintenance)}%
-                  </TableCell>
-                  <TableCell align="right">
-                    ${calculateExpensePerSqFt(formik.values.operatingExpenses?.maintenance)}
-                  </TableCell>
-                </TableRow>
-                
-                {/* Management */}
-                <TableRow>
-                  <TableCell>Property Management</TableCell>
-                  <TableCell align="right">
-                    <TextField
-                      size="small"
-                      id="operatingExpenses.management"
-                      name={fieldName('operatingExpenses.management')}
-                      type="number"
-                      InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
-                      value={values.operatingExpenses?.management  || ''}
-                      onChange={handleChange}
-                    />
-                  </TableCell>
-                  <TableCell align="right">
-                    {calculateExpenseRatio(formik.values.operatingExpenses?.management)}%
-                  </TableCell>
-                  <TableCell align="right">
-                    ${calculateExpensePerSqFt(formik.values.operatingExpenses?.management)}
-                  </TableCell>
-                </TableRow>
-                
-                {/* Administrative */}
-                <TableRow>
-                  <TableCell>Administrative</TableCell>
-                  <TableCell align="right">
-                    <TextField
-                      size="small"
-                      id="operatingExpenses.administrative"
-                      name={fieldName('operatingExpenses.administrative')}
-                      type="number"
-                      InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
-                      value={values.operatingExpenses?.administrative  || ''}
-                      onChange={handleChange}
-                    />
-                  </TableCell>
-                  <TableCell align="right">
-                    {calculateExpenseRatio(formik.values.operatingExpenses?.administrative)}%
-                  </TableCell>
-                  <TableCell align="right">
-                    ${calculateExpensePerSqFt(formik.values.operatingExpenses?.administrative)}
-                  </TableCell>
-                </TableRow>
-                
-                {/* Landscaping */}
-                <TableRow>
-                  <TableCell>Landscaping & Grounds</TableCell>
-                  <TableCell align="right">
-                    <TextField
-                      size="small"
-                      id="operatingExpenses.landscaping"
-                      name={fieldName('operatingExpenses.landscaping')}
-                      type="number"
-                      InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
-                      value={values.operatingExpenses?.landscaping  || ''}
-                      onChange={handleChange}
-                    />
-                  </TableCell>
-                  <TableCell align="right">
-                    {calculateExpenseRatio(formik.values.operatingExpenses?.landscaping)}%
-                  </TableCell>
-                  <TableCell align="right">
-                    ${calculateExpensePerSqFt(formik.values.operatingExpenses?.landscaping)}
-                  </TableCell>
-                </TableRow>
-                
-                {/* Security */}
-                <TableRow>
-                  <TableCell>Security</TableCell>
-                  <TableCell align="right">
-                    <TextField
-                      size="small"
-                      id="operatingExpenses.security"
-                      name={fieldName('operatingExpenses.security')}
-                      type="number"
-                      InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
-                      value={values.operatingExpenses?.security  || ''}
-                      onChange={handleChange}
-                    />
-                  </TableCell>
-                  <TableCell align="right">
-                    {calculateExpenseRatio(formik.values.operatingExpenses?.security)}%
-                  </TableCell>
-                  <TableCell align="right">
-                    ${calculateExpensePerSqFt(formik.values.operatingExpenses?.security)}
-                  </TableCell>
-                </TableRow>
-                
-                {/* Cleaning */}
-                <TableRow>
-                  <TableCell>Cleaning & Janitorial</TableCell>
-                  <TableCell align="right">
-                    <TextField
-                      size="small"
-                      id="operatingExpenses.cleaning"
-                      name={fieldName('operatingExpenses.cleaning')}
-                      type="number"
-                      InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
-                      value={values.operatingExpenses?.cleaning  || ''}
-                      onChange={handleChange}
-                    />
-                  </TableCell>
-                  <TableCell align="right">
-                    {calculateExpenseRatio(formik.values.operatingExpenses?.cleaning)}%
-                  </TableCell>
-                  <TableCell align="right">
-                    ${calculateExpensePerSqFt(formik.values.operatingExpenses?.cleaning)}
-                  </TableCell>
-                </TableRow>
-                
-                {/* Reserves */}
-                <TableRow>
-                  <TableCell>Reserves for Replacement</TableCell>
-                  <TableCell align="right">
-                    <TextField
-                      size="small"
-                      id="operatingExpenses.reserves"
-                      name={fieldName('operatingExpenses.reserves')}
-                      type="number"
-                      InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
-                      value={values.operatingExpenses?.reserves  || ''}
-                      onChange={handleChange}
-                    />
-                  </TableCell>
-                  <TableCell align="right">
-                    {calculateExpenseRatio(formik.values.operatingExpenses?.reserves)}%
-                  </TableCell>
-                  <TableCell align="right">
-                    ${calculateExpensePerSqFt(formik.values.operatingExpenses?.reserves)}
-                  </TableCell>
-                </TableRow>
-                
-                {/* Other */}
-                <TableRow>
-                  <TableCell>Other Expenses</TableCell>
-                  <TableCell align="right">
-                    <TextField
-                      size="small"
-                      id="operatingExpenses.other"
-                      name={fieldName('operatingExpenses.other')}
-                      type="number"
-                      InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
-                      value={values.operatingExpenses?.other  || ''}
-                      onChange={handleChange}
-                    />
-                  </TableCell>
-                  <TableCell align="right">
-                    {calculateExpenseRatio(formik.values.operatingExpenses?.other)}%
-                  </TableCell>
-                  <TableCell align="right">
-                    ${calculateExpensePerSqFt(formik.values.operatingExpenses?.other)}
-                  </TableCell>
-                </TableRow>
+                {[ { key: 'taxes', label: 'Real Estate Taxes' }, { key: 'insurance', label: 'Insurance' }, { key: 'utilities', label: 'Utilities' }, { key: 'maintenance', label: 'Repairs & Maintenance' }, { key: 'management', label: 'Property Management' }, { key: 'administrative', label: 'Administrative' }, { key: 'landscaping', label: 'Landscaping & Grounds' }, { key: 'security', label: 'Security' }, { key: 'cleaning', label: 'Cleaning & Janitorial' }, { key: 'reserves', label: 'Reserves for Replacement' }, { key: 'other', label: 'Other Expenses' }, ].map((expense) => (
+                  <TableRow key={expense.key}>
+                    <TableCell>{expense.label}</TableCell>
+                    <TableCell align="right">
+                      <TextField
+                        size="small"
+                        id={`operatingExpenses.${expense.key}`}
+                        name={`expenses.operatingExpenses.${expense.key}`}
+                        type="number"
+                        InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
+                        value={values.expenses.operatingExpenses[expense.key] || ''}
+                        onChange={formik.handleChange}
+                      />
+                    </TableCell>
+                    <TableCell align="right">
+                      {calculateExpenseRatio(values.expenses.operatingExpenses[expense.key])}%
+                    </TableCell>
+                    <TableCell align="right">
+                      ${calculateExpensePerSqFt(values.expenses.operatingExpenses[expense.key])}
+                    </TableCell>
+                  </TableRow>
+                ))}
                 
                 {/* Total Row */}
                 <TableRow sx={{ backgroundColor: '#f5f5f5' }}>
                   <TableCell><strong>Total Operating Expenses</strong></TableCell>
                   <TableCell align="right">
-                    <strong>${calculateTotalOpEx()}</strong>
+                    <strong>${totalOperatingExpenses.toFixed(2)}</strong>
                   </TableCell>
                   <TableCell align="right">
                     <strong>
-                      {calculateExpenseRatio(calculateTotalOpEx())}%
+                      {calculateExpenseRatio(totalOperatingExpenses)}%
                     </strong>
                   </TableCell>
                   <TableCell align="right">
                     <strong>
-                      ${calculateExpensePerSqFt(calculateTotalOpEx())}
+                      ${calculateExpensePerSqFt(totalOperatingExpenses)}
                     </strong>
                   </TableCell>
                 </TableRow>
@@ -398,14 +181,13 @@ const OperatingExpenses = ({ formik }) => {
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 2 }}>
             <Typography variant="h6">Net Operating Income (NOI)</Typography>
             <TextField
-              sx={{ minWidth: '200px' }}
               id="netOperatingIncome"
-              name={fieldName('netOperatingIncome')}
-              disabled
+              name="expenses.netOperatingIncome"
+              label="Net Operating Income (NOI)"
+              type="number"
               InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
-              value={
-                (parseFloat(formik.values.effectiveGrossIncome || 0) - parseFloat(calculateTotalOpEx())).toFixed(2)
-              }
+              value={values.expenses.netOperatingIncome || '0.00'}
+              disabled
             />
           </Box>
         </Grid>
@@ -415,12 +197,12 @@ const OperatingExpenses = ({ formik }) => {
           <TextField
             fullWidth
             id="expenseNotes"
-            name={fieldName('expenseNotes')}
+            name="expenses.expenseNotes"
             label="Expense Notes"
             multiline
             rows={3}
-            value={values.expenseNotes  || ''}
-            onChange={handleChange}
+            value={formik.values.expenses.expenseNotes || ''}
+            onChange={formik.handleChange}
           />
         </Grid>
       </Grid>

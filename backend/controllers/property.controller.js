@@ -3,6 +3,9 @@ const Property = db.property;
 const User = db.user;
 const Organization = db.organization;
 
+// Import comprehensive appraisal engine
+const AppraisalEngine = require('../services/appraisal/appraisalEngine');
+
 // Create a new property
 const createProperty = async (req, res) => {
   try {
@@ -76,7 +79,7 @@ const createProperty = async (req, res) => {
       tenants: property.tenants ? JSON.parse(property.tenants) : null,
       // Parse comps and adjustments data
       comps: property.comps ? JSON.parse(property.comps) : null,
-      adjustments: property.adjustments ? JSON.parse(property.adjustments) : null
+      adjustments: property.adjustments ? JSON.parse(property.adjustments) : null,
     };
     
     return res.status(201).json(result);
@@ -412,11 +415,380 @@ const getOrganizationProperties = async (req, res) => {
   }
 };
 
+// Get available comps for selection
+const getAvailableComps = async (req, res) => {
+  try {
+    const { Sequelize } = require('sequelize');
+    const path = require('path');
+    
+    const sequelize = new Sequelize({
+      dialect: 'sqlite',
+      storage: path.join(__dirname, '../database/valuelyst.sqlite'),
+      logging: false
+    });
+    
+    const SalesProperty = sequelize.define('sales_property', {
+      id: { type: Sequelize.INTEGER, primaryKey: true, autoIncrement: true },
+      property_id: Sequelize.STRING,
+      property_name: Sequelize.STRING,
+      address: Sequelize.STRING,
+      city: Sequelize.STRING,
+      state: Sequelize.STRING,
+      tax_id: Sequelize.STRING,
+      sale_price: Sequelize.DECIMAL(15, 2),
+      sale_date: Sequelize.STRING,
+      building_size: Sequelize.DECIMAL(10, 2),
+      lot_size: Sequelize.DECIMAL(10, 2),
+      cap_rate: Sequelize.DECIMAL(5, 2),
+      price_per_sf: Sequelize.DECIMAL(10, 2),
+      property_type: Sequelize.STRING,
+      raw_data: Sequelize.JSON
+    }, {
+      tableName: 'sales_properties',
+      timestamps: true
+    });
+    
+    await SalesProperty.sync();
+
+    const comps = await SalesProperty.findAll({
+      attributes: ['id', 'property_id', 'property_name', 'address', 'city', 'state', 'tax_id', 'sale_price', 'sale_date', 'building_size', 'lot_size', 'cap_rate', 'price_per_sf', 'property_type', 'raw_data'],
+      limit: 250,
+      order: [['sale_date', 'DESC']]
+    });
+
+    const results = comps.map(comp => {
+      const plainComp = comp.get({ plain: true });
+      return {
+        ...plainComp,
+        raw_data: typeof plainComp.raw_data === 'string' ? JSON.parse(plainComp.raw_data) : plainComp.raw_data
+      };
+    });
+
+    res.status(200).json({ comps: results });
+  } catch (error) {
+    console.error('Error fetching available comps:', error);
+    res.status(500).json({ message: 'Error fetching available comps', error: error.message });
+  }
+};
+
+// Helper function to build subject property object
+function buildSubjectProperty(subjectPropertyData, propertyId) {
+  return {
+    id: propertyId || 999,
+    propertyId: `SUBJ-${propertyId || 999}`,
+    propertyType: subjectPropertyData?.propertyType || "Office",
+    physical: {
+      buildingArea: {
+        grossBuildingArea: subjectPropertyData?.buildingSize || 15000,
+        netRentableArea: subjectPropertyData?.netRentableArea || 13500
+      },
+      landArea: {
+        sf: subjectPropertyData?.lotSize || 8000,
+        acres: (subjectPropertyData?.lotSize || 8000) / 43560
+      },
+      construction: {
+        yearBuilt: subjectPropertyData?.yearBuilt || 2018,
+        constructionType: "steel_frame",
+        exteriorFinish: "glass",
+        condition: "good"
+      },
+      stories: 3,
+      ceilingHeight: 9,
+      parkingSpaces: 60
+    },
+    location: {
+      address: subjectPropertyData?.address || "789 Test Subject Property Ave",
+      city: subjectPropertyData?.city || "Business City",
+      state: subjectPropertyData?.state || "ST",
+      zipCode: subjectPropertyData?.zipCode || "12345",
+      neighborhood: "A-",
+      market: "Primary"
+    },
+    legal: {
+      propertyRights: "Fee Simple",
+      zoning: "Commercial Office",
+      easements: [],
+      restrictions: []
+    },
+    income: {
+      grossIncome: subjectPropertyData?.grossIncome || 450000,
+      vacancy: 0.05,
+      operatingExpenses: subjectPropertyData?.operatingExpenses || 157500,
+      netOperatingIncome: subjectPropertyData?.netOperatingIncome || 270000
+    },
+    occupancy: "Owner Occupied",
+    condition: "Good"
+  };
+}
+
+// Helper function to transform database comparables to appraisal format
+function transformComparables(selectedComps) {
+  return selectedComps.map(comp => ({
+    id: comp.id,
+    propertyId: comp.property_id,
+    propertyName: comp.property_name,
+    address: comp.address,
+    city: comp.city,
+    state: comp.state,
+    taxId: comp.tax_id,
+    salePrice: parseFloat(comp.sale_price),
+    saleDate: comp.sale_date,
+    buildingSize: parseFloat(comp.building_size),
+    lotSize: parseFloat(comp.lot_size) || 0,
+    propertyType: comp.property_type,
+    yearBuilt: 2015, // Default since not in database
+    pricePerSF: parseFloat(comp.price_per_sf),
+    capRate: parseFloat(comp.cap_rate) || 0.08,
+    annualNetIncome: null, // Not in database
+    physical: {
+      buildingArea: {
+        grossBuildingArea: parseFloat(comp.building_size)
+      },
+      landArea: {
+        sf: parseFloat(comp.lot_size) || 0
+      },
+      construction: {
+        yearBuilt: 2015, // Default since not in database
+        condition: "average"
+      }
+    },
+    location: {
+      address: comp.address,
+      city: comp.city,
+      state: comp.state,
+      neighborhood: "B"
+    },
+    marketConditions: "typical",
+    propertyRights: "fee_simple",
+    financing: "conventional"
+  }));
+}
+
+// Helper function to build market data from comparables
+function buildMarketData(selectedComps) {
+  const prices = selectedComps.map(comp => parseFloat(comp.sale_price)).filter(price => price > 0);
+  const capRates = selectedComps.map(comp => parseFloat(comp.cap_rate)).filter(rate => rate > 0);
+  
+  return {
+    pricing: {
+      average: prices.length > 0 ? prices.reduce((a, b) => a + b, 0) / prices.length : 2000000,
+      median: prices.length > 0 ? prices.sort((a, b) => a - b)[Math.floor(prices.length / 2)] : 2000000,
+      range: {
+        low: prices.length > 0 ? Math.min(...prices) : 1500000,
+        high: prices.length > 0 ? Math.max(...prices) : 2500000
+      }
+    },
+    capRates: {
+      average: capRates.length > 0 ? capRates.reduce((a, b) => a + b, 0) / capRates.length : 0.08,
+      range: {
+        low: capRates.length > 0 ? Math.min(...capRates) : 0.07,
+        high: capRates.length > 0 ? Math.max(...capRates) : 0.09
+      }
+    },
+    marketConditions: "balanced",
+    trends: "stable",
+    vacancy: 0.05,
+    expenseRatio: 0.35,
+    constructionCost: 180 // per square foot
+  };
+}
+
+// Helper functions for appraisal generation
+const buildSubjectPropertyHelper = (subjectPropertyData, propertyId) => {
+  return {
+    id: propertyId || subjectPropertyData.id,
+    address: subjectPropertyData.address || '',
+    city: subjectPropertyData.city || '',
+    state: subjectPropertyData.state || '',
+    propertyType: subjectPropertyData.propertyType || 'Commercial',
+    buildingSize: subjectPropertyData.buildingSize || 0,
+    lotSize: subjectPropertyData.lotSize || 0,
+    yearBuilt: subjectPropertyData.yearBuilt || 0,
+    ...subjectPropertyData
+  };
+};
+
+const transformComparablesHelper = (selectedComps) => {
+  return selectedComps.map(comp => {
+    const plainComp = comp.get({ plain: true });
+    return {
+      id: plainComp.id,
+      address: plainComp.address || '',
+      city: plainComp.city || '',
+      state: plainComp.state || '',
+      salePrice: plainComp.sale_price || 0,
+      saleDate: plainComp.sale_date || '',
+      buildingSize: plainComp.building_size || 0,
+      lotSize: plainComp.lot_size || 0,
+      propertyType: plainComp.property_type || 'Commercial',
+      capRate: plainComp.cap_rate || 0,
+      pricePerSF: plainComp.price_per_sf || 0
+    };
+  });
+};
+
+const buildMarketDataHelper = (selectedComps) => {
+  const salePrices = selectedComps.map(comp => comp.sale_price || 0).filter(price => price > 0);
+  const capRates = selectedComps.map(comp => comp.cap_rate || 0).filter(rate => rate > 0);
+  
+  return {
+    avgSalePrice: salePrices.length > 0 ? salePrices.reduce((sum, price) => sum + price, 0) / salePrices.length : 0,
+    avgCapRate: capRates.length > 0 ? capRates.reduce((sum, rate) => sum + rate, 0) / capRates.length : 0,
+    marketTrends: 'Stable', // Default value
+    comparableCount: selectedComps.length
+  };
+};
+
+// Generate commercial property appraisal using comprehensive USPAP-compliant engine
+const generateAppraisal = async (req, res) => {
+  try {
+    const { propertyId, selectedCompIds, adjustments, subjectPropertyData } = req.body;
+    
+    console.log('🏢 Generating comprehensive commercial appraisal...');
+    console.log('Selected comp IDs:', selectedCompIds);
+    
+    // Connect to database
+    const { Sequelize } = require('sequelize');
+    const path = require('path');
+    
+    const sequelize = new Sequelize({
+      dialect: 'sqlite',
+      storage: path.join(__dirname, '../database/valuelyst.sqlite'),
+      logging: false
+    });
+    
+    const SalesProperty = sequelize.define('sales_property', {
+      id: { type: Sequelize.INTEGER, primaryKey: true, autoIncrement: true },
+      property_id: Sequelize.STRING,
+      property_name: Sequelize.STRING,
+      address: Sequelize.STRING,
+      city: Sequelize.STRING,
+      state: Sequelize.STRING,
+      tax_id: Sequelize.STRING,
+      sale_price: Sequelize.DECIMAL(15, 2),
+      sale_date: Sequelize.STRING,
+      building_size: Sequelize.DECIMAL(10, 2),
+      lot_size: Sequelize.DECIMAL(10, 2),
+      cap_rate: Sequelize.DECIMAL(5, 2),
+      price_per_sf: Sequelize.DECIMAL(10, 2),
+      property_type: Sequelize.STRING
+    }, {
+      tableName: 'sales_properties',
+      timestamps: true
+    });
+    
+    // Get selected comparable properties from database
+    const selectedComps = await SalesProperty.findAll({
+      where: {
+        id: { [Sequelize.Op.in]: selectedCompIds }
+      }
+    });
+    
+    console.log(`📊 Found ${selectedComps.length} comparable properties from database`);
+    
+    if (selectedComps.length < 3) {
+      return res.status(400).json({
+        message: 'At least 3 comparable properties are required for appraisal'
+      });
+    }
+
+    // Create comprehensive subject property object
+    const subjectProperty = buildSubjectPropertyHelper(subjectPropertyData, propertyId);
+    
+    // Transform database comparables to appraisal format
+    const comparables = transformComparablesHelper(selectedComps);
+    
+    // Prepare market data
+    const marketData = buildMarketDataHelper(selectedComps);
+    
+    // Initialize the comprehensive appraisal engine
+    const appraisalEngine = new AppraisalEngine();
+    
+    // Generate comprehensive appraisal
+    const appraisalResults = await appraisalEngine.generateAppraisal(
+      subjectProperty,
+      comparables,
+      marketData,
+      {
+        userAdjustments: adjustments,
+        includeAllApproaches: true,
+        generateDetailedReport: true,
+        uspapCompliance: true
+      }
+    );
+    
+    // Format response for frontend
+    const response = {
+      success: true,
+      message: 'Comprehensive appraisal generated successfully',
+      appraisal: {
+        subjectProperty,
+        comparables: comparables.map(comp => ({
+          ...comp,
+          userAdjustments: adjustments[comp.id] || {}
+        })),
+        valuationSummary: {
+          finalValue: appraisalResults.reconciliation.finalValue,
+          valueRange: appraisalResults.reconciliation.valueRange,
+          confidence: appraisalResults.reconciliation.confidence,
+          approaches: {
+            salesComparison: appraisalResults.reconciliation.approaches.salesComparison ? {
+              valueIndication: appraisalResults.reconciliation.approaches.salesComparison.valueIndication,
+              reliability: appraisalResults.reconciliation.reliability.salesComparison?.level,
+              weight: Math.round(appraisalResults.reconciliation.weights.sales * 100)
+            } : null,
+            incomeApproach: appraisalResults.reconciliation.approaches.incomeApproach ? {
+              valueIndication: appraisalResults.reconciliation.approaches.incomeApproach.valueIndication,
+              reliability: appraisalResults.reconciliation.reliability.incomeApproach?.level,
+              weight: Math.round(appraisalResults.reconciliation.weights.income * 100)
+            } : null,
+            costApproach: appraisalResults.reconciliation.approaches.costApproach ? {
+              valueIndication: appraisalResults.reconciliation.approaches.costApproach.valueIndication,
+              reliability: appraisalResults.reconciliation.reliability.costApproach?.level,
+              weight: Math.round(appraisalResults.reconciliation.weights.cost * 100)
+            } : null
+          },
+          reconciliation: {
+            weightingRationale: appraisalResults.reconciliation.narrative.weightingRationale,
+            varianceAnalysis: appraisalResults.reconciliation.narrative.varianceAnalysis,
+            conclusion: appraisalResults.reconciliation.narrative.conclusion
+          }
+        },
+        qualityAssurance: {
+          validationResults: appraisalResults.validation || {},
+          dataCompleteness: appraisalResults.validation?.dataCompleteness || {},
+          recommendations: appraisalResults.validation?.recommendations || []
+        },
+        professionalReport: appraisalResults.report,
+        analysisDate: new Date().toISOString(),
+        metadata: {
+          engineVersion: '1.0.0',
+          uspapCompliant: true,
+          approaches: Object.keys(appraisalResults.reconciliation.approaches).length,
+          comparablesUsed: comparables.length
+        }
+      }
+    };
+
+    res.status(200).json(response);
+
+  } catch (error) {
+    console.error('❌ Error generating comprehensive appraisal:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'An error occurred while generating the appraisal',
+      error: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
+  }
+};
+
 module.exports = {
   createProperty,
   getAllProperties,
   getPropertyById,
   updateProperty,
   deleteProperty,
-  getOrganizationProperties
+  getOrganizationProperties,
+  getAvailableComps,
+  generateAppraisal
 };

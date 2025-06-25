@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -14,48 +14,47 @@ import {
   TableHead,
   TableRow,
 } from '@mui/material';
-import { createFieldNameHelper, createChangeHandler } from '../utils/formHelpers';
 
 const ValuationMetrics = ({ formik }) => {
-  // Create helper functions for this component
-  const fieldName = createFieldNameHelper('valuations');
-  const handleChange = createChangeHandler(formik);
-  
-  // Ensure values is initialized
-  const values = formik.values || {};
-  // Helper function to calculate cap rate
-  const calculateCapRate = () => {
-    const noi = parseFloat(formik.values.netOperatingIncome || 0);
-    const propertyValue = parseFloat(formik.values.estimatedValue || 0);
-    if (propertyValue === 0) return 'N/A';
-    return ((noi / propertyValue) * 100).toFixed(2) + '%';
-  };
+  const { values, touched, errors, handleChange, setFieldValue } = formik;
 
-  // Helper function to calculate price per square foot
-  const calculatePricePerSF = () => {
-    const propertyValue = parseFloat(formik.values.estimatedValue || 0);
-    const buildingSize = parseFloat(formik.values.buildingSize || 0);
-    if (buildingSize === 0) return 'N/A';
-    return '$' + (propertyValue / buildingSize).toFixed(2);
-  };
+  // Destructure nested values for easier access and to set dependencies for useEffect
+  const { netOperatingIncome } = values.expenses;
+  const { buildingSize } = values.physicalAttributes;
+  const { baseRent, expenseReimbursements, percentageRent, otherIncome } = values.income;
+  const { estimatedValue } = values.valuation;
 
-  // Helper function to calculate gross rent multiplier
-  const calculateGRM = () => {
-    const propertyValue = parseFloat(formik.values.estimatedValue || 0);
-    const potentialGrossIncome = parseFloat(formik.values.potentialGrossIncome || 0);
-    if (potentialGrossIncome === 0) return 'N/A';
-    return (propertyValue / potentialGrossIncome).toFixed(2) + 'x';
-  };
+  useEffect(() => {
+    const noi = parseFloat(netOperatingIncome) || 0;
+    const pgi = (parseFloat(baseRent) || 0) + (parseFloat(expenseReimbursements) || 0) + (parseFloat(percentageRent) || 0) + (parseFloat(otherIncome) || 0);
+    const estValue = parseFloat(estimatedValue) || 0;
+    const bldgSize = parseFloat(buildingSize) || 0;
 
-  // Helper function to format currency
-  const formatCurrency = (value) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0
-    }).format(value);
-  };
+    // Calculate and set Cap Rate
+    if (estValue > 0) {
+      const capRate = (noi / estValue) * 100;
+      setFieldValue('valuation.capRate', capRate.toFixed(2));
+    } else {
+      setFieldValue('valuation.capRate', '0.00');
+    }
+
+    // Calculate and set Value Per Square Foot
+    if (bldgSize > 0) {
+      const pricePerSF = estValue / bldgSize;
+      setFieldValue('valuation.valuePerSquareFoot', pricePerSF.toFixed(2));
+    } else {
+      setFieldValue('valuation.valuePerSquareFoot', '0.00');
+    }
+
+    // Calculate and set Gross Rent Multiplier
+    if (pgi > 0) {
+      const grm = estValue / pgi;
+      setFieldValue('valuation.grossRentMultiplier', grm.toFixed(2));
+    } else {
+      setFieldValue('valuation.grossRentMultiplier', '0.00');
+    }
+
+  }, [netOperatingIncome, baseRent, expenseReimbursements, percentageRent, otherIncome, estimatedValue, buildingSize, setFieldValue]);
 
   return (
     <Paper elevation={3} sx={{ p: 3 }}>
@@ -77,56 +76,65 @@ const ValuationMetrics = ({ formik }) => {
         <Grid item xs={12} md={6}>
           <TextField
             fullWidth
-            id="estimatedValue"
-            name={fieldName('estimatedValue')}
+            id="valuation.estimatedValue"
+            name="valuation.estimatedValue"
             label="Estimated Property Value"
             type="number"
             InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
-            value={values.estimatedValue  || ''}
+            value={values.valuation.estimatedValue || ''}
             onChange={handleChange}
+            error={touched.valuation?.estimatedValue && Boolean(errors.valuation?.estimatedValue)}
+            helperText={touched.valuation?.estimatedValue && errors.valuation?.estimatedValue}
           />
         </Grid>
 
         <Grid item xs={12} md={6}>
           <TextField
             fullWidth
-            id="valuationDate"
-            name={fieldName('valuationDate')}
+            id="valuation.valuationDate"
+            name="valuation.valuationDate"
             label="Valuation Date"
             type="date"
             InputLabelProps={{ shrink: true }}
-            value={values.valuationDate  || ''}
+            value={values.valuation.valuationDate || ''}
             onChange={handleChange}
+            error={touched.valuation?.valuationDate && Boolean(errors.valuation?.valuationDate)}
+            helperText={touched.valuation?.valuationDate && errors.valuation?.valuationDate}
           />
         </Grid>
 
         <Grid item xs={12} md={4}>
           <TextField
             fullWidth
-            id="valuePerSquareFoot"
+            id="valuation.valuePerSquareFoot"
+            name="valuation.valuePerSquareFoot"
             label="Value Per Square Foot"
-            InputProps={{ readOnly: true }}
-            value={calculatePricePerSF()}
+            InputProps={{ readOnly: true, startAdornment: <InputAdornment position="start">$</InputAdornment> }}
+            value={values.valuation.valuePerSquareFoot || '0.00'}
           />
         </Grid>
 
         <Grid item xs={12} md={4}>
           <TextField
             fullWidth
-            id="capRate"
+            id="valuation.capRate"
+            name="valuation.capRate"
             label="Capitalization Rate"
-            InputProps={{ readOnly: true }}
-            value={calculateCapRate()}
+            InputProps={{ readOnly: true, endAdornment: <InputAdornment position="end">%</InputAdornment> }}
+            value={values.valuation.capRate || '0.00'}
+            error={touched.valuation?.capRate && Boolean(errors.valuation?.capRate)}
+            helperText={touched.valuation?.capRate && errors.valuation?.capRate}
           />
         </Grid>
 
         <Grid item xs={12} md={4}>
           <TextField
             fullWidth
-            id="grossRentMultiplier"
+            id="valuation.grossRentMultiplier"
+            name="valuation.grossRentMultiplier"
             label="Gross Rent Multiplier"
-            InputProps={{ readOnly: true }}
-            value={calculateGRM()}
+            InputProps={{ readOnly: true, endAdornment: <InputAdornment position="end">x</InputAdornment> }}
+            value={values.valuation.grossRentMultiplier || '0.00'}
           />
         </Grid>
 
@@ -141,15 +149,15 @@ const ValuationMetrics = ({ formik }) => {
         <Grid item xs={12} md={6}>
           <TextField
             fullWidth
-            id="discountRate"
-            name={fieldName('discountRate')}
+            id="valuation.discountRate"
+            name="valuation.discountRate"
             label="Discount Rate (%)"
             type="number"
-            InputProps={{ 
+            InputProps={{
               endAdornment: <InputAdornment position="end">%</InputAdornment>,
               inputProps: { min: 0, max: 30, step: 0.1 }
             }}
-            value={values.discountRate  || ''}
+            value={values.valuation.discountRate || ''}
             onChange={handleChange}
           />
         </Grid>
@@ -157,15 +165,15 @@ const ValuationMetrics = ({ formik }) => {
         <Grid item xs={12} md={6}>
           <TextField
             fullWidth
-            id="terminalCapRate"
-            name={fieldName('terminalCapRate')}
+            id="valuation.terminalCapRate"
+            name="valuation.terminalCapRate"
             label="Terminal Cap Rate (%)"
             type="number"
-            InputProps={{ 
+            InputProps={{
               endAdornment: <InputAdornment position="end">%</InputAdornment>,
               inputProps: { min: 0, max: 30, step: 0.1 }
             }}
-            value={values.terminalCapRate  || ''}
+            value={values.valuation.terminalCapRate || ''}
             onChange={handleChange}
           />
         </Grid>
@@ -173,12 +181,12 @@ const ValuationMetrics = ({ formik }) => {
         <Grid item xs={12} md={6}>
           <TextField
             fullWidth
-            id="holdingPeriod"
-            name={fieldName('holdingPeriod')}
+            id="valuation.holdingPeriod"
+            name="valuation.holdingPeriod"
             label="Holding Period (Years)"
             type="number"
             InputProps={{ inputProps: { min: 1, max: 30, step: 1 } }}
-            value={values.holdingPeriod  || ''}
+            value={values.valuation.holdingPeriod || ''}
             onChange={handleChange}
           />
         </Grid>
@@ -186,15 +194,15 @@ const ValuationMetrics = ({ formik }) => {
         <Grid item xs={12} md={6}>
           <TextField
             fullWidth
-            id="annualIncomeGrowth"
-            name={fieldName('annualIncomeGrowth')}
+            id="valuation.annualIncomeGrowth"
+            name="valuation.annualIncomeGrowth"
             label="Annual Income Growth (%)"
             type="number"
-            InputProps={{ 
+            InputProps={{
               endAdornment: <InputAdornment position="end">%</InputAdornment>,
               inputProps: { min: 0, max: 20, step: 0.1 }
             }}
-            value={values.annualIncomeGrowth  || ''}
+            value={values.valuation.annualIncomeGrowth || ''}
             onChange={handleChange}
           />
         </Grid>
@@ -222,33 +230,33 @@ const ValuationMetrics = ({ formik }) => {
               <TableBody>
                 <TableRow>
                   <TableCell>Price Per SF</TableCell>
-                  <TableCell align="right">{calculatePricePerSF()}</TableCell>
+                  <TableCell align="right">${values.valuation.valuePerSquareFoot || '0.00'}</TableCell>
                   <TableCell align="right">
-                    <TextField 
-                      size="small" 
-                      id="marketMetrics.pricePSF.low"
-                      name={fieldName('marketMetrics.pricePSF.low')}
-                      value={values.marketMetrics?.pricePSF?.low  || ''}
+                    <TextField
+                      size="small"
+                      id="valuation.marketMetrics.pricePSF.low"
+                      name="valuation.marketMetrics.pricePSF.low"
+                      value={values.valuation.marketMetrics?.pricePSF?.low || ''}
                       onChange={handleChange}
                       InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
                     />
                   </TableCell>
                   <TableCell align="right">
-                    <TextField 
-                      size="small" 
-                      id="marketMetrics.pricePSF.average"
-                      name={fieldName('marketMetrics.pricePSF.average')}
-                      value={values.marketMetrics?.pricePSF?.average  || ''}
+                    <TextField
+                      size="small"
+                      id="valuation.marketMetrics.pricePSF.average"
+                      name="valuation.marketMetrics.pricePSF.average"
+                      value={values.valuation.marketMetrics?.pricePSF?.average || ''}
                       onChange={handleChange}
                       InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
                     />
                   </TableCell>
                   <TableCell align="right">
-                    <TextField 
-                      size="small" 
-                      id="marketMetrics.pricePSF.high"
-                      name={fieldName('marketMetrics.pricePSF.high')}
-                      value={values.marketMetrics?.pricePSF?.high  || ''}
+                    <TextField
+                      size="small"
+                      id="valuation.marketMetrics.pricePSF.high"
+                      name="valuation.marketMetrics.pricePSF.high"
+                      value={values.valuation.marketMetrics?.pricePSF?.high || ''}
                       onChange={handleChange}
                       InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
                     />
@@ -256,33 +264,33 @@ const ValuationMetrics = ({ formik }) => {
                 </TableRow>
                 <TableRow>
                   <TableCell>Cap Rate</TableCell>
-                  <TableCell align="right">{calculateCapRate()}</TableCell>
+                  <TableCell align="right">{values.valuation.capRate || '0.00'}%</TableCell>
                   <TableCell align="right">
-                    <TextField 
-                      size="small" 
-                      id="marketMetrics.capRate.low"
-                      name={fieldName('marketMetrics.capRate.low')}
-                      value={values.marketMetrics?.capRate?.low  || ''}
+                    <TextField
+                      size="small"
+                      id="valuation.marketMetrics.capRate.low"
+                      name="valuation.marketMetrics.capRate.low"
+                      value={values.valuation.marketMetrics?.capRate?.low || ''}
                       onChange={handleChange}
                       InputProps={{ endAdornment: <InputAdornment position="end">%</InputAdornment> }}
                     />
                   </TableCell>
                   <TableCell align="right">
-                    <TextField 
-                      size="small" 
-                      id="marketMetrics.capRate.average"
-                      name={fieldName('marketMetrics.capRate.average')}
-                      value={values.marketMetrics?.capRate?.average  || ''}
+                    <TextField
+                      size="small"
+                      id="valuation.marketMetrics.capRate.average"
+                      name="valuation.marketMetrics.capRate.average"
+                      value={values.valuation.marketMetrics?.capRate?.average || ''}
                       onChange={handleChange}
                       InputProps={{ endAdornment: <InputAdornment position="end">%</InputAdornment> }}
                     />
                   </TableCell>
                   <TableCell align="right">
-                    <TextField 
-                      size="small" 
-                      id="marketMetrics.capRate.high"
-                      name={fieldName('marketMetrics.capRate.high')}
-                      value={values.marketMetrics?.capRate?.high  || ''}
+                    <TextField
+                      size="small"
+                      id="valuation.marketMetrics.capRate.high"
+                      name="valuation.marketMetrics.capRate.high"
+                      value={values.valuation.marketMetrics?.capRate?.high || ''}
                       onChange={handleChange}
                       InputProps={{ endAdornment: <InputAdornment position="end">%</InputAdornment> }}
                     />
@@ -290,31 +298,31 @@ const ValuationMetrics = ({ formik }) => {
                 </TableRow>
                 <TableRow>
                   <TableCell>Gross Rent Multiplier</TableCell>
-                  <TableCell align="right">{calculateGRM()}</TableCell>
+                  <TableCell align="right">{values.valuation.grossRentMultiplier || '0.00'}x</TableCell>
                   <TableCell align="right">
-                    <TextField 
-                      size="small" 
-                      id="marketMetrics.grm.low"
-                      name={fieldName('marketMetrics.grm.low')}
-                      value={values.marketMetrics?.grm?.low  || ''}
+                    <TextField
+                      size="small"
+                      id="valuation.marketMetrics.grm.low"
+                      name="valuation.marketMetrics.grm.low"
+                      value={values.valuation.marketMetrics?.grm?.low || ''}
                       onChange={handleChange}
                     />
                   </TableCell>
                   <TableCell align="right">
-                    <TextField 
-                      size="small" 
-                      id="marketMetrics.grm.average"
-                      name={fieldName('marketMetrics.grm.average')}
-                      value={values.marketMetrics?.grm?.average  || ''}
+                    <TextField
+                      size="small"
+                      id="valuation.marketMetrics.grm.average"
+                      name="valuation.marketMetrics.grm.average"
+                      value={values.valuation.marketMetrics?.grm?.average || ''}
                       onChange={handleChange}
                     />
                   </TableCell>
                   <TableCell align="right">
-                    <TextField 
-                      size="small" 
-                      id="marketMetrics.grm.high"
-                      name={fieldName('marketMetrics.grm.high')}
-                      value={values.marketMetrics?.grm?.high  || ''}
+                    <TextField
+                      size="small"
+                      id="valuation.marketMetrics.grm.high"
+                      name="valuation.marketMetrics.grm.high"
+                      value={values.valuation.marketMetrics?.grm?.high || ''}
                       onChange={handleChange}
                     />
                   </TableCell>
@@ -334,12 +342,12 @@ const ValuationMetrics = ({ formik }) => {
         <Grid item xs={12} md={4}>
           <TextField
             fullWidth
-            id="valuationMethods.incomeApproach"
-            name={fieldName('valuationMethods.incomeApproach')}
+            id="valuation.valuationMethods.incomeApproach"
+            name="valuation.valuationMethods.incomeApproach"
             label="Income Approach Value"
             type="number"
             InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
-            value={values.valuationMethods?.incomeApproach  || ''}
+            value={values.valuation.valuationMethods?.incomeApproach || ''}
             onChange={handleChange}
           />
         </Grid>
@@ -347,12 +355,12 @@ const ValuationMetrics = ({ formik }) => {
         <Grid item xs={12} md={4}>
           <TextField
             fullWidth
-            id="valuationMethods.salesComparison"
-            name={fieldName('valuationMethods.salesComparison')}
+            id="valuation.valuationMethods.salesComparison"
+            name="valuation.valuationMethods.salesComparison"
             label="Sales Comparison Value"
             type="number"
             InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
-            value={values.valuationMethods?.salesComparison  || ''}
+            value={values.valuation.valuationMethods?.salesComparison || ''}
             onChange={handleChange}
           />
         </Grid>
@@ -360,12 +368,12 @@ const ValuationMetrics = ({ formik }) => {
         <Grid item xs={12} md={4}>
           <TextField
             fullWidth
-            id="valuationMethods.costApproach"
-            name={fieldName('valuationMethods.costApproach')}
+            id="valuation.valuationMethods.costApproach"
+            name="valuation.valuationMethods.costApproach"
             label="Cost Approach Value"
             type="number"
             InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
-            value={values.valuationMethods?.costApproach  || ''}
+            value={values.valuation.valuationMethods?.costApproach || ''}
             onChange={handleChange}
           />
         </Grid>
@@ -374,12 +382,12 @@ const ValuationMetrics = ({ formik }) => {
         <Grid item xs={12}>
           <TextField
             fullWidth
-            id="valuationNotes"
-            name={fieldName('valuationNotes')}
+            id="valuation.valuationNotes"
+            name="valuation.valuationNotes"
             label="Valuation Notes"
             multiline
             rows={3}
-            value={values.valuationNotes  || ''}
+            value={values.valuation.valuationNotes || ''}
             onChange={handleChange}
           />
         </Grid>

@@ -14,26 +14,34 @@ import {
   Slider,
   Divider
 } from '@mui/material';
-import { createFieldNameHelper, createChangeHandler } from '../utils/formHelpers';
+
 
 const VacancyAdjustments = ({ formik }) => {
-  // Create helper functions for this component
-  const fieldName = createFieldNameHelper('vacancy');
-  const handleChange = createChangeHandler(formik);
-  
-  // Ensure values is initialized
-  const values = formik.values || {};
+  const { income, vacancy } = formik.values;
+
+  const potentialGrossIncome = (
+      parseFloat(income.baseRent || 0) +
+      parseFloat(income.expenseReimbursements || 0) +
+      parseFloat(income.percentageRent || 0) +
+      parseFloat(income.otherIncome || 0)
+  );
+
   // Function to calculate the vacancy loss amount based on percentage
   const calculateVacancyLoss = (percentage) => {
-    const potentialGrossIncome = parseFloat(formik.values.potentialGrossIncome || 0);
-    return (potentialGrossIncome * (percentage / 100)).toFixed(2);
+    return (potentialGrossIncome * (parseFloat(percentage) / 100)).toFixed(2);
   };
+
+  const effectiveGrossIncome = (
+      potentialGrossIncome - 
+      parseFloat(vacancy.vacancyLossAmount || calculateVacancyLoss(vacancy.vacancyRate)) - 
+      parseFloat(vacancy.creditLossAmount || 0)
+  ).toFixed(2);
 
   // Update vacancy loss amount when percentage changes
   const handleVacancyRateChange = (event) => {
     const value = event.target.value;
-    formik.setFieldValue('vacancyRate', value);
-    formik.setFieldValue('vacancyLossAmount', calculateVacancyLoss(value));
+    formik.setFieldValue('vacancy.vacancyRate', value);
+    formik.setFieldValue('vacancy.vacancyLossAmount', calculateVacancyLoss(value));
   };
 
   return (
@@ -57,15 +65,15 @@ const VacancyAdjustments = ({ formik }) => {
           <TextField
             fullWidth
             id="marketVacancyRate"
-            name={fieldName('marketVacancyRate')}
+            name="vacancy.marketVacancyRate"
             label="Market Vacancy Rate (%)"
             type="number"
             InputProps={{ 
               endAdornment: <InputAdornment position="end">%</InputAdornment>,
               inputProps: { min: 0, max: 100, step: 0.1 }
             }}
-            value={values.marketVacancyRate  || ''}
-            onChange={handleChange}
+            value={formik.values.vacancy.marketVacancyRate  || ''}
+            onChange={formik.handleChange}
           />
         </Grid>
 
@@ -73,15 +81,15 @@ const VacancyAdjustments = ({ formik }) => {
           <TextField
             fullWidth
             id="submarketVacancyRate"
-            name={fieldName('submarketVacancyRate')}
+            name="vacancy.submarketVacancyRate"
             label="Submarket Vacancy Rate (%)"
             type="number"
             InputProps={{ 
               endAdornment: <InputAdornment position="end">%</InputAdornment>,
               inputProps: { min: 0, max: 100, step: 0.1 }
             }}
-            value={values.submarketVacancyRate  || ''}
-            onChange={handleChange}
+            value={formik.values.vacancy.submarketVacancyRate  || ''}
+            onChange={formik.handleChange}
           />
         </Grid>
 
@@ -97,10 +105,11 @@ const VacancyAdjustments = ({ formik }) => {
           <Typography gutterBottom>Current Vacancy Rate (%)</Typography>
           <Box sx={{ px: 2 }}>
             <Slider
-              value={parseFloat(formik.values.vacancyRate || 0)}
+              name="vacancy.vacancyRate"
+              value={parseFloat(formik.values.vacancy.vacancyRate || 0)}
               onChange={(e, newValue) => {
-                formik.setFieldValue('vacancyRate', newValue);
-                formik.setFieldValue('vacancyLossAmount', calculateVacancyLoss(newValue));
+                formik.setFieldValue('vacancy.vacancyRate', newValue);
+                formik.setFieldValue('vacancy.vacancyLossAmount', calculateVacancyLoss(newValue));
               }}
               valueLabelDisplay="auto"
               step={0.5}
@@ -113,14 +122,16 @@ const VacancyAdjustments = ({ formik }) => {
             fullWidth
             margin="normal"
             id="vacancyRate"
-            name={fieldName('vacancyRate')}
+            name="vacancy.vacancyRate"
             type="number"
             InputProps={{ 
               endAdornment: <InputAdornment position="end">%</InputAdornment>,
               inputProps: { min: 0, max: 100, step: 0.1 }
             }}
-            value={values.vacancyRate  || ''}
+            value={formik.values.vacancy.vacancyRate  || ''}
             onChange={handleVacancyRateChange}
+            error={formik.touched.vacancy?.vacancyRate && Boolean(formik.errors.vacancy?.vacancyRate)}
+            helperText={formik.touched.vacancy?.vacancyRate && formik.errors.vacancy?.vacancyRate}
           />
         </Grid>
 
@@ -128,13 +139,13 @@ const VacancyAdjustments = ({ formik }) => {
           <TextField
             fullWidth
             id="vacancyLossAmount"
-            name={fieldName('vacancyLossAmount')}
+            name="vacancy.vacancyLossAmount"
             label="Vacancy Loss Amount"
             type="number"
             InputProps={{ 
               startAdornment: <InputAdornment position="start">$</InputAdornment> 
             }}
-            value={formik.values.vacancyLossAmount || calculateVacancyLoss(formik.values.vacancyRate || 0)}
+            value={formik.values.vacancy.vacancyLossAmount || calculateVacancyLoss(formik.values.vacancy.vacancyRate || 0)}
             disabled
           />
         </Grid>
@@ -151,15 +162,17 @@ const VacancyAdjustments = ({ formik }) => {
           <TextField
             fullWidth
             id="creditLossRate"
-            name={fieldName('creditLossRate')}
+            name="vacancy.creditLossRate"
             label="Credit Loss Rate (%)"
             type="number"
             InputProps={{ 
               endAdornment: <InputAdornment position="end">%</InputAdornment>,
               inputProps: { min: 0, max: 100, step: 0.1 }
             }}
-            value={values.creditLossRate  || ''}
-            onChange={handleChange}
+            value={formik.values.vacancy.creditLossRate  || ''}
+            onChange={formik.handleChange}
+            error={formik.touched.vacancy?.creditLossRate && Boolean(formik.errors.vacancy?.creditLossRate)}
+            helperText={formik.touched.vacancy?.creditLossRate && formik.errors.vacancy?.creditLossRate}
           />
         </Grid>
 
@@ -167,14 +180,14 @@ const VacancyAdjustments = ({ formik }) => {
           <TextField
             fullWidth
             id="creditLossAmount"
-            name={fieldName('creditLossAmount')}
+            name="vacancy.creditLossAmount"
             label="Credit Loss Amount"
             type="number"
             InputProps={{ 
               startAdornment: <InputAdornment position="start">$</InputAdornment> 
             }}
-            value={values.creditLossAmount  || ''}
-            onChange={handleChange}
+            value={formik.values.vacancy.creditLossAmount  || ''}
+            onChange={formik.handleChange}
           />
         </Grid>
 
@@ -190,14 +203,14 @@ const VacancyAdjustments = ({ formik }) => {
           <TextField
             fullWidth
             id="freeRentMonths"
-            name={fieldName('freeRentMonths')}
+            name="vacancy.freeRentMonths"
             label="Free Rent Months (Average)"
             type="number"
             InputProps={{ 
               inputProps: { min: 0, step: 0.5 }
             }}
-            value={values.freeRentMonths  || ''}
-            onChange={handleChange}
+            value={formik.values.vacancy.freeRentMonths  || ''}
+            onChange={formik.handleChange}
           />
         </Grid>
 
@@ -205,14 +218,14 @@ const VacancyAdjustments = ({ formik }) => {
           <TextField
             fullWidth
             id="tenantImprovementAllowance"
-            name={fieldName('tenantImprovementAllowance')}
+            name="vacancy.tenantImprovementAllowance"
             label="TI Allowance ($/sq ft)"
             type="number"
             InputProps={{ 
               startAdornment: <InputAdornment position="start">$</InputAdornment> 
             }}
-            value={values.tenantImprovementAllowance  || ''}
-            onChange={handleChange}
+            value={formik.values.vacancy.tenantImprovementAllowance  || ''}
+            onChange={formik.handleChange}
           />
         </Grid>
 
@@ -220,12 +233,12 @@ const VacancyAdjustments = ({ formik }) => {
           <TextField
             fullWidth
             id="concessionsNotes"
-            name={fieldName('concessionsNotes')}
+            name="vacancy.concessionsNotes"
             label="Concessions Notes"
             multiline
             rows={3}
-            value={values.concessionsNotes  || ''}
-            onChange={handleChange}
+            value={formik.values.vacancy.concessionsNotes  || ''}
+            onChange={formik.handleChange}
           />
         </Grid>
 
@@ -237,27 +250,23 @@ const VacancyAdjustments = ({ formik }) => {
           </Typography>
         </Grid>
 
-        <Grid item xs={12}>
-          <TextField
-            fullWidth
-            id="effectiveGrossIncome"
-            name={fieldName('effectiveGrossIncome')}
-            label="Effective Gross Income"
-            type="number"
-            InputProps={{ 
-              startAdornment: <InputAdornment position="start">$</InputAdornment> 
-            }}
-            disabled
-            value={
-              (parseFloat(formik.values.potentialGrossIncome || 0) - 
-               parseFloat(formik.values.vacancyLossAmount || 0) - 
-               parseFloat(formik.values.creditLossAmount || 0)).toFixed(2)
-            }
-          />
-        </Grid>
-      </Grid>
-    </Paper>
-  );
+<Grid item xs={12}>
+  <TextField
+    fullWidth
+    id="effectiveGrossIncome"
+    name="vacancy.effectiveGrossIncome"
+    label="Effective Gross Income"
+    type="number"
+    InputProps={{ 
+      startAdornment: <InputAdornment position="start">$</InputAdornment> 
+    }}
+    disabled
+    value={effectiveGrossIncome}
+  />
+</Grid>
+</Grid>
+</Paper>
+);
 };
 
 export default VacancyAdjustments;

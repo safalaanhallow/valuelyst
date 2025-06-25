@@ -17,24 +17,7 @@ import {
 } from '@mui/material';
 
 const Zoning = ({ formik }) => {
-  // Ensure values is initialized
-  const values = formik.values || {};
   
-  // Helper function to create the fully qualified field name with prefix
-  const fieldName = (name) => `zoning.${name}`;
-
-  // Helper to handle onChange for this component
-  const handleChange = (e) => {
-    // For fields that need special handling, we can intercept here
-    if (e.target.name === fieldName('landAreaSqFt') && values.landArea) {
-      // If updating square feet, also update acres
-      const sfValue = parseFloat(e.target.value);
-      if (!isNaN(sfValue)) {
-        formik.setFieldValue(fieldName('landArea'), (sfValue / 43560).toFixed(2));
-      }
-    }
-    formik.handleChange(e);
-  };
   return (
     <Paper elevation={3} sx={{ p: 3 }}>
       <Typography variant="h5" gutterBottom>
@@ -50,12 +33,12 @@ const Zoning = ({ formik }) => {
           <TextField
             fullWidth
             id="zoningCode"
-            name={fieldName('zoningCode')}
+            name="zoning.zoningCode"
             label="Zoning Code"
-            value={values.zoningCode || ''}
-            onChange={handleChange}
-            error={formik.touched.zoningCode && Boolean(formik.errors.zoningCode)}
-            helperText={formik.touched.zoningCode && formik.errors.zoningCode}
+            value={formik.values.zoning.zoningCode || ''}
+            onChange={formik.handleChange}
+            error={formik.touched.zoning?.zoningCode && Boolean(formik.errors.zoning?.zoningCode)}
+            helperText={formik.touched.zoning?.zoningCode && formik.errors.zoning?.zoningCode}
           />
         </Grid>
 
@@ -65,9 +48,9 @@ const Zoning = ({ formik }) => {
             <Select
               labelId="zoning-classification-label"
               id="zoningClassification"
-              name={fieldName('zoningClassification')}
-              value={values.zoningClassification || ''}
-              onChange={handleChange}
+              name="zoning.zoningClassification"
+              value={formik.values.zoning.zoningClassification || ''}
+              onChange={formik.handleChange}
               label="Zoning Classification"
             >
               <MenuItem value=""><em>Select Classification</em></MenuItem>
@@ -87,9 +70,9 @@ const Zoning = ({ formik }) => {
             <Select
               labelId="current-use-label"
               id="currentUse"
-              name={fieldName('currentUse')}
-              value={values.currentUse || ''}
-              onChange={handleChange}
+              name="zoning.currentUse"
+              value={formik.values.zoning.currentUse || ''}
+              onChange={formik.handleChange}
               label="Current Use"
             >
               <MenuItem value=""><em>Select Current Use</em></MenuItem>
@@ -110,12 +93,12 @@ const Zoning = ({ formik }) => {
           <TextField
             fullWidth
             id="permitableUses"
-            name={fieldName('permitableUses')}
+            name="zoning.permitableUses"
             label="Permitable Uses"
             multiline
             rows={1}
-            value={values.permitableUses || ''}
-            onChange={handleChange}
+            value={formik.values.zoning.permitableUses || ''}
+            onChange={formik.handleChange}
           />
         </Grid>
 
@@ -130,14 +113,22 @@ const Zoning = ({ formik }) => {
           <TextField
             fullWidth
             id="landArea"
-            name={fieldName('landArea')}
+            name="zoning.landArea"
             label="Land Area (Acres)"
             type="number"
             InputProps={{ inputProps: { min: 0, step: 0.01 } }}
-            value={values.landArea || ''}
-            onChange={handleChange}
-            error={formik.touched.landArea && Boolean(formik.errors.landArea)}
-            helperText={formik.touched.landArea && formik.errors.landArea}
+            value={formik.values.zoning.landArea || ''}
+            onChange={(e) => {
+              formik.handleChange(e);
+              const acres = parseFloat(e.target.value);
+              if (!isNaN(acres)) {
+                formik.setFieldValue('zoning.landAreaSqFt', (acres * 43560).toFixed(0));
+              } else {
+                formik.setFieldValue('zoning.landAreaSqFt', '');
+              }
+            }}
+            error={formik.touched.zoning?.landArea && Boolean(formik.errors.zoning?.landArea)}
+            helperText={formik.touched.zoning?.landArea && formik.errors.zoning?.landArea}
           />
         </Grid>
 
@@ -145,16 +136,18 @@ const Zoning = ({ formik }) => {
           <TextField
             fullWidth
             id="landAreaSqFt"
-            name={fieldName('landAreaSqFt')}
+            name="zoning.landAreaSqFt"
             label="Land Area (Square Feet)"
             type="number"
             InputProps={{ inputProps: { min: 0 } }}
-            value={values.landAreaSqFt || (values.landArea ? values.landArea * 43560 : '')}
+            value={formik.values.zoning.landAreaSqFt || ''}
             onChange={(e) => {
               formik.handleChange(e);
-              // Update acres when square feet change
-              if (e.target.value) {
-                formik.setFieldValue('landArea', (parseFloat(e.target.value) / 43560).toFixed(4));
+              const sqFt = parseFloat(e.target.value);
+              if (!isNaN(sqFt)) {
+                formik.setFieldValue('zoning.landArea', (sqFt / 43560).toFixed(4));
+              } else {
+                formik.setFieldValue('zoning.landArea', '');
               }
             }}
           />
@@ -164,12 +157,12 @@ const Zoning = ({ formik }) => {
           <TextField
             fullWidth
             id="maxHeightAllowed"
-            name={fieldName('maxHeightAllowed')}
+            name="zoning.maxHeightAllowed"
             label="Maximum Height Allowed (ft)"
             type="number"
             InputProps={{ inputProps: { min: 0 } }}
-            value={values.maxHeightAllowed || ''}
-            onChange={handleChange}
+            value={formik.values.zoning.maxHeightAllowed || ''}
+            onChange={formik.handleChange}
           />
         </Grid>
 
@@ -177,15 +170,15 @@ const Zoning = ({ formik }) => {
           <TextField
             fullWidth
             id="maxBuildingCoverage"
-            name={fieldName('maxBuildingCoverage')}
+            name="zoning.maxBuildingCoverage"
             label="Maximum Building Coverage (%)"
             type="number"
             InputProps={{ 
               endAdornment: <InputAdornment position="end">%</InputAdornment>,
               inputProps: { min: 0, max: 100 }
             }}
-            value={values.maxBuildingCoverage || ''}
-            onChange={handleChange}
+            value={formik.values.zoning.maxBuildingCoverage || ''}
+            onChange={formik.handleChange}
           />
         </Grid>
 
@@ -193,12 +186,12 @@ const Zoning = ({ formik }) => {
           <TextField
             fullWidth
             id="floorAreaRatio"
-            name={fieldName('floorAreaRatio')}
+            name="zoning.floorAreaRatio"
             label="Floor Area Ratio (FAR)"
             type="number"
             InputProps={{ inputProps: { min: 0, step: 0.1 } }}
-            value={values.floorAreaRatio || ''}
-            onChange={handleChange}
+            value={formik.values.zoning.floorAreaRatio || ''}
+            onChange={formik.handleChange}
           />
         </Grid>
 
@@ -206,12 +199,12 @@ const Zoning = ({ formik }) => {
           <TextField
             fullWidth
             id="maxDensity"
-            name={fieldName('maxDensity')}
+            name="zoning.maxDensity"
             label="Maximum Density (Units/Acre)"
             type="number"
             InputProps={{ inputProps: { min: 0 } }}
-            value={values.maxDensity || ''}
-            onChange={handleChange}
+            value={formik.values.zoning.maxDensity || ''}
+            onChange={formik.handleChange}
           />
         </Grid>
 
@@ -226,12 +219,12 @@ const Zoning = ({ formik }) => {
           <TextField
             fullWidth
             id="setbacks.front"
-            name={fieldName('setbacks.front')}
+            name="zoning.setbacks.front"
             label="Front Setback (ft)"
             type="number"
             InputProps={{ inputProps: { min: 0 } }}
-            value={values.setbacks?.front || ''}
-            onChange={handleChange}
+            value={formik.values.zoning.setbacks?.front || ''}
+            onChange={formik.handleChange}
           />
         </Grid>
 
@@ -239,12 +232,12 @@ const Zoning = ({ formik }) => {
           <TextField
             fullWidth
             id="setbacks.rear"
-            name={fieldName('setbacks.rear')}
+            name="zoning.setbacks.rear"
             label="Rear Setback (ft)"
             type="number"
             InputProps={{ inputProps: { min: 0 } }}
-            value={values.setbacks?.rear || ''}
-            onChange={handleChange}
+            value={formik.values.zoning.setbacks?.rear || ''}
+            onChange={formik.handleChange}
           />
         </Grid>
 
@@ -252,12 +245,12 @@ const Zoning = ({ formik }) => {
           <TextField
             fullWidth
             id="setbacks.leftSide"
-            name={fieldName('setbacks.leftSide')}
+            name="zoning.setbacks.leftSide"
             label="Left Side Setback (ft)"
             type="number"
             InputProps={{ inputProps: { min: 0 } }}
-            value={values.setbacks?.leftSide || ''}
-            onChange={handleChange}
+            value={formik.values.zoning.setbacks?.leftSide || ''}
+            onChange={formik.handleChange}
           />
         </Grid>
 
@@ -265,12 +258,12 @@ const Zoning = ({ formik }) => {
           <TextField
             fullWidth
             id="setbacks.rightSide"
-            name={fieldName('setbacks.rightSide')}
+            name="zoning.setbacks.rightSide"
             label="Right Side Setback (ft)"
             type="number"
             InputProps={{ inputProps: { min: 0 } }}
-            value={values.setbacks?.rightSide || ''}
-            onChange={handleChange}
+            value={formik.values.zoning.setbacks?.rightSide || ''}
+            onChange={formik.handleChange}
           />
         </Grid>
 
@@ -285,12 +278,12 @@ const Zoning = ({ formik }) => {
           <TextField
             fullWidth
             id="parkingRequirements.commercial"
-            name={fieldName('parkingRequirements.commercial')}
+            name="zoning.parkingRequirements.commercial"
             label="Commercial Ratio (per 1,000 SF)"
             type="number"
             InputProps={{ inputProps: { min: 0, step: 0.1 } }}
-            value={values.parkingRequirements?.commercial || ''}
-            onChange={handleChange}
+            value={formik.values.zoning.parkingRequirements?.commercial || ''}
+            onChange={formik.handleChange}
           />
         </Grid>
 
@@ -298,12 +291,12 @@ const Zoning = ({ formik }) => {
           <TextField
             fullWidth
             id="parkingRequirements.residential"
-            name={fieldName('parkingRequirements.residential')}
+            name="zoning.parkingRequirements.residential"
             label="Residential Ratio (per Unit)"
             type="number"
             InputProps={{ inputProps: { min: 0, step: 0.1 } }}
-            value={values.parkingRequirements?.residential || ''}
-            onChange={handleChange}
+            value={formik.values.zoning.parkingRequirements?.residential || ''}
+            onChange={formik.handleChange}
           />
         </Grid>
 
@@ -311,12 +304,12 @@ const Zoning = ({ formik }) => {
           <TextField
             fullWidth
             id="parkingRequirements.accessible"
-            name={fieldName('parkingRequirements.accessible')}
+            name="zoning.parkingRequirements.accessible"
             label="Required Accessible Spaces"
             type="number"
             InputProps={{ inputProps: { min: 0 } }}
-            value={values.parkingRequirements?.accessible || ''}
-            onChange={handleChange}
+            value={formik.values.zoning.parkingRequirements?.accessible || ''}
+            onChange={formik.handleChange}
           />
         </Grid>
 
@@ -334,9 +327,9 @@ const Zoning = ({ formik }) => {
               <FormControlLabel
                 control={
                   <Checkbox 
-                    name={fieldName('zoningStatus.conforming')}
-                    checked={values.zoningStatus?.conforming || false}
-                    onChange={handleChange}
+                    name="zoning.zoningStatus.conforming"
+                    checked={formik.values.zoning.zoningStatus?.conforming || false}
+                    onChange={formik.handleChange}
                   />
                 }
                 label="Conforming Use"
@@ -344,9 +337,9 @@ const Zoning = ({ formik }) => {
               <FormControlLabel
                 control={
                   <Checkbox 
-                    name={fieldName('zoningStatus.nonconforming')}
-                    checked={values.zoningStatus?.nonconforming || false}
-                    onChange={handleChange}
+                    name="zoning.zoningStatus.nonconforming"
+                    checked={formik.values.zoning.zoningStatus?.nonconforming || false}
+                    onChange={formik.handleChange}
                   />
                 }
                 label="Legal Non-Conforming Use"
@@ -354,9 +347,9 @@ const Zoning = ({ formik }) => {
               <FormControlLabel
                 control={
                   <Checkbox 
-                    name={fieldName('zoningStatus.variance')}
-                    checked={values.zoningStatus?.variance || false}
-                    onChange={handleChange}
+                    name="zoning.zoningStatus.variance"
+                    checked={formik.values.zoning.zoningStatus?.variance || false}
+                    onChange={formik.handleChange}
                   />
                 }
                 label="Zoning Variance Granted"
@@ -364,9 +357,9 @@ const Zoning = ({ formik }) => {
               <FormControlLabel
                 control={
                   <Checkbox 
-                    name={fieldName('zoningStatus.specialUse')}
-                    checked={values.zoningStatus?.specialUse || false}
-                    onChange={handleChange}
+                    name="zoning.zoningStatus.specialUse"
+                    checked={formik.values.zoning.zoningStatus?.specialUse || false}
+                    onChange={formik.handleChange}
                   />
                 }
                 label="Special Use Permit"
@@ -382,9 +375,9 @@ const Zoning = ({ formik }) => {
               <FormControlLabel
                 control={
                   <Checkbox 
-                    name={fieldName('futureDevelopment.rezoning')}
-                    checked={values.futureDevelopment?.rezoning || false}
-                    onChange={handleChange}
+                    name="zoning.futureDevelopment.rezoning"
+                    checked={formik.values.zoning.futureDevelopment?.rezoning || false}
+                    onChange={formik.handleChange}
                   />
                 }
                 label="Rezoning Potential"
@@ -392,9 +385,9 @@ const Zoning = ({ formik }) => {
               <FormControlLabel
                 control={
                   <Checkbox 
-                    name={fieldName('futureDevelopment.expansionPotential')}
-                    checked={values.futureDevelopment?.expansionPotential || false}
-                    onChange={handleChange}
+                    name="zoning.futureDevelopment.expansionPotential"
+                    checked={formik.values.zoning.futureDevelopment?.expansionPotential || false}
+                    onChange={formik.handleChange}
                   />
                 }
                 label="Expansion Potential"
@@ -402,9 +395,9 @@ const Zoning = ({ formik }) => {
               <FormControlLabel
                 control={
                   <Checkbox 
-                    name={fieldName('futureDevelopment.denseUsePotential')}
-                    checked={values.futureDevelopment?.denseUsePotential || false}
-                    onChange={handleChange}
+                    name="zoning.futureDevelopment.denseUsePotential"
+                    checked={formik.values.zoning.futureDevelopment?.denseUsePotential || false}
+                    onChange={formik.handleChange}
                   />
                 }
                 label="Potential for More Dense Use"
@@ -412,9 +405,9 @@ const Zoning = ({ formik }) => {
               <FormControlLabel
                 control={
                   <Checkbox 
-                    name={fieldName('futureDevelopment.inOpportunityZone')}
-                    checked={values.futureDevelopment?.inOpportunityZone || false}
-                    onChange={handleChange}
+                    name="zoning.futureDevelopment.inOpportunityZone"
+                    checked={formik.values.zoning.futureDevelopment?.inOpportunityZone || false}
+                    onChange={formik.handleChange}
                   />
                 }
                 label="In Opportunity Zone"
@@ -428,12 +421,12 @@ const Zoning = ({ formik }) => {
           <TextField
             fullWidth
             id="zoningNotes"
-            name={fieldName('zoningNotes')}
+            name="zoning.zoningNotes"
             label="Additional Zoning Notes"
             multiline
             rows={3}
-            value={values.zoningNotes || ''}
-            onChange={handleChange}
+            value={formik.values.zoning.zoningNotes || ''}
+            onChange={formik.handleChange}
           />
         </Grid>
       </Grid>

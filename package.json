@@ -1,0 +1,31 @@
+{
+  "name": "valuelyst-full-stack",
+  "version": "1.0.0",
+  "description": "Commercial Property Appraisal Platform",
+  "main": "backend/test-minimal.js",
+  "scripts": {
+    "build": "cd client && npm install && npm run build",
+    "start": "node backend/test-minimal.js",
+    "dev": "concurrently \"cd backend && node test-minimal.js\" \"cd client && npm start\"",
+    "install-all": "npm install && cd backend && npm install && cd ../client && npm install"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nelsonriches1/valuelyst.git"
+  },
+  "keywords": [
+    "appraisal",
+    "real-estate",
+    "commercial-property",
+    "valuation"
+  ],
+  "author": "safalaan hallow",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/nelsonriches1/valuelyst/issues"
+  },
+  "homepage": "https://github.com/nelsonriches1/valuelyst#readme",
+  "devDependencies": {
+    "concurrently": "^7.6.0"
+  }
+}

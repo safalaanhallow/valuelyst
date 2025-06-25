@@ -1,14 +1,22 @@
 import React from 'react';
+import { useFormik } from 'formik';
+import * as Yup from 'yup';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import CssBaseline from '@mui/material/CssBaseline';
 import { Container, Typography, Box, AppBar, Toolbar } from '@mui/material';
-import PropertyCharacteristicsForm from './components/forms/PropertyCharacteristicsForm';
+import axios from 'axios';
+
+// Configure axios default base URL
+axios.defaults.baseURL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:3001';
+
 import ComparablePropertiesSelection from './pages/ComparablePropertiesSelection';
 import ValuationResults from './pages/ValuationResults';
 import WorkflowNavigator from './pages/WorkflowNavigator';
 import Zoning from './pages/Zoning';
 import EnvironmentalCharacteristics from './pages/EnvironmentalCharacteristics';
+import Identification from './pages/Identification';
+import PhysicalAttributes from './pages/PhysicalAttributes';
 import AccessibilityLocation from './pages/AccessibilityLocation';
 import IncomeStatements from './pages/IncomeStatements';
 import VacancyAdjustments from './pages/VacancyAdjustments';
@@ -17,6 +25,7 @@ import DebtStructures from './pages/DebtStructures';
 import ValuationMetrics from './pages/ValuationMetrics';
 import TenantDetails from './pages/TenantDetails';
 import AdjustmentsPage from './pages/AdjustmentsPage';
+import { AppraisalProvider } from './context/AppraisalContext';
 
 // Create a theme instance.
 const theme = createTheme({
@@ -34,51 +43,191 @@ const theme = createTheme({
 });
 
 function App() {
-  // Create form state to manage property values across all steps
-  const [formValues, setFormValues] = React.useState({
+  const validationSchema = Yup.object({
+    identification: Yup.object({
+      propertyType: Yup.string().required('Property type is required'),
+      apn: Yup.string().required('APN is required'),
+      lastSaleDate: Yup.date().nullable().required('Last sale date is required'),
+      streetAddress: Yup.string().required('Street address is required'),
+      city: Yup.string().required('City is required'),
+      state: Yup.string().required('State is required'),
+      zipCode: Yup.string().required('Zip code is required'),
+    }),
+    physicalAttributes: Yup.object({
+      effectiveAge: Yup.number().positive('Must be positive').required('Effective age is required'),
+      yearBuilt: Yup.number().min(1800, 'Invalid year').max(new Date().getFullYear(), 'Invalid year').required('Year built is required'),
+      floorPlateArea: Yup.number().positive('Must be positive').required('Floor plate area is required'),
+      ceilingHeight: Yup.number().positive('Must be positive').required('Ceiling height is required'),
+    }),
+    zoning: Yup.object({
+      zoningCode: Yup.string().required('Zoning code is required'),
+      landArea: Yup.number().positive('Must be positive').required('Land area is required'),
+    }),
+    environmental: Yup.object({
+      floodZone: Yup.string().required('Flood zone is required'),
+      soilType: Yup.string().required('Soil type is required'),
+    }),
+    accessibility: Yup.object({
+        walkScore: Yup.number().min(0).max(100, 'Score must be 100 or less').required('Walk Score is required'),
+        transitScore: Yup.number().min(0).max(100, 'Score must be 100 or less').required('Transit Score is required'),
+    }),
+    income: Yup.object({
+      incomePeriod: Yup.string().required('Income period is required'),
+      asOfDate: Yup.date().required('As of date is required').nullable(),
+      baseRent: Yup.number().min(0, 'Cannot be negative').required('Base rent is required'),
+      rentRoll: Yup.array().of(
+        Yup.object().shape({
+          unit: Yup.string().required('Unit name is required'),
+          tenant: Yup.string().required('Tenant name is required'),
+          monthlyRent: Yup.number().min(0).required('Monthly rent is required'),
+        })
+      ),
+    }),
+    vacancy: Yup.object({
+      vacancyRate: Yup.number().min(0).max(100).required('Vacancy rate is required'),
+      creditLossRate: Yup.number().min(0).max(100).required('Credit loss rate is required'),
+    }),
+    expenses: Yup.object({
+      expenseYear: Yup.number().required('Expense year is required'),
+      operatingExpenses: Yup.object(),
+    }),
+    valuation: Yup.object({
+      estimatedValue: Yup.number().required('Estimated value is required'),
+      valuationDate: Yup.date().required('Valuation date is required'),
+      capRate: Yup.number().min(0).max(100).required('Cap rate is required'),
+    }),
+  });
+
+  const formik = useFormik({
+    initialValues: {
     // Initial values for all form sections
     // Property characteristics
-    identification: {},
+        identification: {
+      latitude: 39.8283,
+      longitude: -98.5795,
+      propertyType: '',
+      propertySubType: '',
+      apn: '',
+      lastSaleDate: null,
+      streetAddress: '',
+      city: '',
+      state: '',
+      zipCode: ''
+    },
     zoning: {
       setbacks: {},
       parkingRequirements: {},
       zoningStatus: {},
       futureDevelopment: {}
     },
-    physicalAttributes: {},
+    physicalAttributes: {
+      effectiveAge: 1,
+      yearBuilt: 2013,
+      floorPlateArea: 0,
+      ceilingHeight: 0,
+      hasHVAC: false,
+      hasSprinkler: false,
+      hasElevator: false,
+      hasSecuritySystem: false,
+      hasBMS: false,
+      hasGenerators: false,
+      hasEnergyManagement: false,
+      hasSmartLighting: false
+    },
     environmental: {
-      environmentalFeatures: {},
-      environmentalRisks: {},
-      sustainableFeatures: {}
+      floodZone: '',
+      soilType: '',
+      environmentalFactors: {
+        wetlands: false,
+        endangeredSpecies: false,
+        contaminationHistory: false,
+      },
+      environmentalAssessment: '',
+      assessmentDate: null,
+      environmentalNotes: '',
     },
     accessibility: {
-      accessibility: {},
-      transportation: {},
-      proximityFeatures: {}
+      walkScore: '',
+      transitScore: '',
+      distanceToHighway: '',
+      distanceToAirport: '',
+      accessibilityFeatures: {
+        adaCompliant: false,
+        wheelchairRamps: false,
+        accessibleParking: false,
+        accessibleRestrooms: false,
+      },
+      retailProximity: 0,
+      restaurantProximity: 0,
+      entertainmentProximity: 0,
+      nearbyAmenities: '',
+      locationNotes: '',
+      medianIncomeZip: '',
+      populationDensity: '',
+      employmentRate: '',
     },
-    
-    // Financial information
     income: {
-      income: {},
-      rentRolls: [],
-      historicalData: []
+      incomePeriod: '',
+      asOfDate: null,
+      baseRent: '',
+      expenseReimbursements: '',
+      percentageRent: '',
+      otherIncome: '',
+      incomeNotes: '',
+      rentRoll: [],
     },
     vacancy: {
-      vacancy: {},
-      creditLoss: {},
-      adjustments: []
+      marketVacancyRate: '',
+      submarketVacancyRate: '',
+      vacancyRate: 5,
+      vacancyLossAmount: '',
+      creditLossRate: 2,
+      creditLossAmount: '',
+      freeRentMonths: '',
+      tenantImprovementAllowance: '',
+      concessionsNotes: '',
     },
     expenses: {
-      expenses: {
-        taxes: {},
-        insurance: {},
-        utilities: {},
-        maintenance: {},
-        management: {},
-        other: {}
+      buildingSize: '',
+      expenseYear: new Date().getFullYear(),
+      operatingExpenses: {
+        taxes: '',
+        insurance: '',
+        utilities: '',
+        maintenance: '',
+        management: '',
+        administrative: '',
+        landscaping: '',
+        security: '',
+        cleaning: '',
+        reserves: '',
+        other: '',
       },
-      historicalExpenses: []
+      netOperatingIncome: '',
     },
+    valuation: {
+      estimatedValue: '',
+      valuationDate: new Date().toISOString().split('T')[0],
+      capRate: '',
+      valuePerSquareFoot: '',
+      grossRentMultiplier: '',
+      discountRate: '',
+      terminalCapRate: '',
+      holdingPeriod: '',
+      annualIncomeGrowth: '',
+      marketMetrics: {
+        pricePSF: { low: '', average: '', high: '' },
+        capRate: { low: '', average: '', high: '' },
+        grm: { low: '', average: '', high: '' },
+      },
+      valuationMethods: {
+        incomeApproach: '',
+        salesComparison: '',
+        costApproach: '',
+      },
+      valuationNotes: '',
+    },
+    historicalExpenses: [],
     debt: {
       debt: {
         loans: [],
@@ -104,73 +253,12 @@ function App() {
     // Valuation analysis
     comps: [],
     adjustments: {}
-  });
-  
-  // Create a generic handleChange function for all form components
-  const handleChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    const fieldValue = type === 'checkbox' ? checked : value;
-    
-    // Handle nested fields with dot notation (e.g., 'zoning.setbacks.front')
-    const namePath = name.split('.');
-    if (namePath.length === 1) {
-      // Simple field
-      setFormValues({ ...formValues, [name]: fieldValue });
-    } else {
-      // Nested field
-      const [section, ...rest] = namePath;
-      const fieldPath = rest.join('.');
-      
-      setFormValues({
-        ...formValues,
-        [section]: {
-          ...formValues[section],
-          // Use the setNestedValue helper for deeply nested properties
-          ...setNestedValue(formValues[section] || {}, fieldPath, fieldValue)
-        }
-      });
-    }
-  };
-  
-  // Helper function to set value in a nested object given a dot-notation path
-  const setNestedValue = (obj, path, value) => {
-    const parts = path.split('.');
-    const lastPart = parts.pop();
-    let current = { ...obj };
-    let currentObj = current;
-    
-    // Build up the nested structure
-    for (const part of parts) {
-      currentObj[part] = { ...currentObj[part] };
-      currentObj = currentObj[part];
-    }
-    
-    // Set the final value
-    currentObj[lastPart] = value;
-    return current;
-  };
-  
-  // Create a generic setFieldValue function for formik components
-  const setFieldValue = (field, value) => {
-    // Handle nested fields with dot notation
-    const fieldPath = field.split('.');
-    if (fieldPath.length === 1) {
-      // Simple field
-      setFormValues({ ...formValues, [field]: value });
-    } else {
-      // Nested field
-      const [section, ...rest] = fieldPath;
-      const restPath = rest.join('.');
-      
-      setFormValues({
-        ...formValues,
-        [section]: {
-          ...formValues[section],
-          ...setNestedValue(formValues[section] || {}, restPath, value)
-        }
-      });
-    }
-  };
+  },
+  validationSchema,
+  onSubmit: (values) => {
+    console.log('Form submitted', values);
+  },
+});
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
@@ -184,170 +272,105 @@ function App() {
         </AppBar>
         <Container maxWidth="lg">
           <Box sx={{ my: 4 }}>
-            <Routes>
+            <AppraisalProvider>
+              <Routes>
               {/* Property Characteristics Section */}
-              <Route path="/" element={
-                <WorkflowNavigator currentStep="identification">
+                            <Route path="/" element={
+                <WorkflowNavigator formik={formik} currentStep="identification">
                   <Typography variant="h4" component="h1" gutterBottom align="center">
                     Property Identification
                   </Typography>
-                  <PropertyCharacteristicsForm activeTab={0} formik={{
-                    values: formValues.identification,
-                    handleChange: handleChange,
-                    setFieldValue: setFieldValue,
-                    touched: {},
-                    errors: {}
-                  }} />
+                                    <Identification formik={formik} />
                 </WorkflowNavigator>
               } />
               <Route path="/zoning" element={
-                <WorkflowNavigator currentStep="zoning">
+                <WorkflowNavigator formik={formik} currentStep="zoning">
                   <Typography variant="h4" component="h1" gutterBottom align="center">
                     Zoning Information
                   </Typography>
-                  <Zoning formik={{
-                    values: formValues.zoning,
-                    handleChange: handleChange,
-                    setFieldValue: setFieldValue,
-                    touched: {}, 
-                    errors: {}
-                  }} />
+                                    <Zoning formik={formik} />
                 </WorkflowNavigator>
               } />
-              <Route path="/physical-attributes" element={
-                <WorkflowNavigator currentStep="physical">
+                            <Route path="/physical-attributes" element={
+                <WorkflowNavigator formik={formik} currentStep="physical">
                   <Typography variant="h4" component="h1" gutterBottom align="center">
                     Physical Attributes
                   </Typography>
-                  <PropertyCharacteristicsForm activeTab={1} formik={{
-                    values: formValues.physicalAttributes,
-                    handleChange: handleChange,
-                    setFieldValue: setFieldValue,
-                    touched: {},
-                    errors: {}
-                  }} />
+                                    <PhysicalAttributes formik={formik} />
                 </WorkflowNavigator>
               } />
               <Route path="/environmental" element={
-                <WorkflowNavigator currentStep="environmental">
+                <WorkflowNavigator formik={formik} currentStep="environmental">
                   <Typography variant="h4" component="h1" gutterBottom align="center">
                     Environmental Characteristics
                   </Typography>
-                  <EnvironmentalCharacteristics formik={{
-                    values: formValues.environmental,
-                    handleChange: handleChange,
-                    setFieldValue: setFieldValue,
-                    touched: {},
-                    errors: {}
-                  }} />
+                                    <EnvironmentalCharacteristics formik={formik} />
                 </WorkflowNavigator>
               } />
               <Route path="/accessibility" element={
-                <WorkflowNavigator currentStep="accessibility">
+                <WorkflowNavigator formik={formik} currentStep="accessibility">
                   <Typography variant="h4" component="h1" gutterBottom align="center">
                     Accessibility & Location
                   </Typography>
-                  <AccessibilityLocation formik={{
-                    values: formValues.accessibility,
-                    handleChange: handleChange,
-                    setFieldValue: setFieldValue,
-                    touched: {},
-                    errors: {}
-                  }} />
+                                    <AccessibilityLocation formik={formik} />
                 </WorkflowNavigator>
               } />
 
               {/* Financial Information Section */}
               <Route path="/income-statements" element={
-                <WorkflowNavigator currentStep="income">
+                <WorkflowNavigator formik={formik} currentStep="income">
                   <Typography variant="h4" component="h1" gutterBottom align="center">
                     Income Statements & Rent Roll
                   </Typography>
-                  <IncomeStatements formik={{
-                    values: formValues.income,
-                    handleChange: handleChange,
-                    setFieldValue: setFieldValue,
-                    touched: {},
-                    errors: {}
-                  }} />
+                                    <IncomeStatements formik={formik} />
                 </WorkflowNavigator>
               } />
               <Route path="/vacancy-adjustments" element={
-                <WorkflowNavigator currentStep="vacancy">
+                <WorkflowNavigator formik={formik} currentStep="vacancy">
                   <Typography variant="h4" component="h1" gutterBottom align="center">
                     Vacancy & Credit Loss Adjustments
                   </Typography>
-                  <VacancyAdjustments formik={{
-                    values: formValues.vacancy,
-                    handleChange: handleChange,
-                    setFieldValue: setFieldValue,
-                    touched: {},
-                    errors: {}
-                  }} />
+                                    <VacancyAdjustments formik={formik} />
                 </WorkflowNavigator>
               } />
               <Route path="/operating-expenses" element={
-                <WorkflowNavigator currentStep="expenses">
+                <WorkflowNavigator formik={formik} currentStep="expenses">
                   <Typography variant="h4" component="h1" gutterBottom align="center">
                     Operating Expenses
                   </Typography>
-                  <OperatingExpenses formik={{
-                    values: formValues.expenses,
-                    handleChange: handleChange,
-                    setFieldValue: setFieldValue,
-                    touched: {},
-                    errors: {}
-                  }} />
+                                    <OperatingExpenses formik={formik} />
                 </WorkflowNavigator>
               } />
               <Route path="/debt-structures" element={
-                <WorkflowNavigator currentStep="debt">
+                <WorkflowNavigator formik={formik} currentStep="debt">
                   <Typography variant="h4" component="h1" gutterBottom align="center">
                     Debt Structures
                   </Typography>
-                  <DebtStructures formik={{
-                    values: formValues.debt,
-                    handleChange: handleChange,
-                    setFieldValue: setFieldValue,
-                    touched: {},
-                    errors: {}
-                  }} />
+                                    <DebtStructures formik={formik} />
                 </WorkflowNavigator>
               } />
               <Route path="/valuation-metrics" element={
-                <WorkflowNavigator currentStep="metrics">
+                <WorkflowNavigator formik={formik} currentStep="metrics">
                   <Typography variant="h4" component="h1" gutterBottom align="center">
                     Valuation Metrics
                   </Typography>
-                  <ValuationMetrics formik={{
-                    values: formValues.valuations,
-                    handleChange: handleChange,
-                    setFieldValue: setFieldValue,
-                    touched: {},
-                    errors: {}
-                  }} />
+                                    <ValuationMetrics formik={formik} />
                 </WorkflowNavigator>
               } />
 
               {/* Tenant Information Section */}
               <Route path="/tenant-details" element={
-                <WorkflowNavigator currentStep="tenants">
+                <WorkflowNavigator formik={formik} currentStep="tenants">
                   <Typography variant="h4" component="h1" gutterBottom align="center">
                     Tenant Details & Lease Terms
                   </Typography>
-                  <TenantDetails formik={{
-                    values: formValues.tenants,
-                    handleChange: handleChange,
-                    setFieldValue: setFieldValue,
-                    touched: {},
-                    errors: {}
-                  }} />
+                                    <TenantDetails formik={formik} />
                 </WorkflowNavigator>
               } />
 
               {/* Valuation Analysis Section */}
               <Route path="/comparable-properties-selection" element={
-                <WorkflowNavigator currentStep="comps">
+                <WorkflowNavigator formik={formik} currentStep="comps">
                   <Typography variant="h4" component="h1" gutterBottom align="center">
                     Comparable Properties Selection
                   </Typography>
@@ -355,24 +378,15 @@ function App() {
                 </WorkflowNavigator>
               } />
               <Route path="/adjustments" element={
-                <WorkflowNavigator currentStep="adjustments">
+                <WorkflowNavigator formik={formik} currentStep="adjustments">
                   <Typography variant="h4" component="h1" gutterBottom align="center">
                     Comparable Properties & Adjustments
                   </Typography>
-                  <AdjustmentsPage formik={{
-                    values: {
-                      comps: formValues.comps,
-                      adjustments: formValues.adjustments
-                    },
-                    handleChange: handleChange,
-                    setFieldValue: setFieldValue,
-                    touched: {},
-                    errors: {}
-                  }} />
+                                    <AdjustmentsPage formik={formik} />
                 </WorkflowNavigator>
               } />
               <Route path="/valuation-results" element={
-                <WorkflowNavigator currentStep="results">
+                <WorkflowNavigator formik={formik} currentStep="results">
                   <Typography variant="h4" component="h1" gutterBottom align="center">
                     Valuation Results
                   </Typography>
@@ -380,7 +394,8 @@ function App() {
                 </WorkflowNavigator>
               } />
               <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
+              </Routes>
+            </AppraisalProvider>
           </Box>
         </Container>
       </Router>

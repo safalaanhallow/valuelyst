@@ -2,7 +2,14 @@ import * as Yup from 'yup';
 
 // Validation schema for the Property Characteristics Form
 export const PropertyFormValidationSchema = Yup.object({
-  // Identification tab validations
+  // Identification tab - Property Type validations
+  propertyType: Yup.string()
+    .required('Property type is required'),
+  propertySubtype: Yup.string(),
+  propertyNotes: Yup.string()
+    .max(500, 'Notes must be 500 characters or less'),
+
+  // Identification tab - Property Data validations
   apn: Yup.string()
     .matches(/^\d{3}-\d{3}-\d{3}$/, 'APN must be in format 123-456-789')
     .required('APN is required'),

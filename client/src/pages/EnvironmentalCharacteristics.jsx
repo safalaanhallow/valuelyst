@@ -16,16 +16,7 @@ import {
 } from '@mui/material';
 
 const EnvironmentalCharacteristics = ({ formik }) => {
-  // Ensure values is initialized
-  const values = formik.values || {};
-  
-  // Helper function to create the fully qualified field name with prefix
-  const fieldName = (name) => `environmental.${name}`;
 
-  // Helper to handle onChange for this component
-  const handleChange = (e) => {
-    formik.handleChange(e);
-  };
   return (
     <Paper elevation={3} sx={{ p: 3 }}>
       <Typography variant="h5" gutterBottom>
@@ -42,10 +33,11 @@ const EnvironmentalCharacteristics = ({ formik }) => {
             <Select
               labelId="flood-zone-label"
               id="floodZone"
-              name={fieldName('floodZone')}
-              value={values.floodZone || ''}
-              onChange={handleChange}
-              error={formik.touched.floodZone && Boolean(formik.errors.floodZone)}
+              name="environmental.floodZone"
+              value={formik.values.environmental.floodZone || ''}
+              onChange={formik.handleChange}
+              error={formik.touched.environmental?.floodZone && Boolean(formik.errors.environmental?.floodZone)}
+              helperText={formik.touched.environmental?.floodZone && formik.errors.environmental?.floodZone}
               label="Flood Zone"
             >
               <MenuItem value="">Select Flood Zone</MenuItem>
@@ -63,12 +55,12 @@ const EnvironmentalCharacteristics = ({ formik }) => {
           <TextField
             fullWidth
             id="soilType"
-            name={fieldName('soilType')}
+            name="environmental.soilType"
             label="Soil Type"
-            value={values.soilType || ''}
-            onChange={handleChange}
-            error={formik.touched.soilType && Boolean(formik.errors.soilType)}
-            helperText={formik.touched.soilType && formik.errors.soilType}
+            value={formik.values.environmental.soilType || ''}
+            onChange={formik.handleChange}
+            error={formik.touched.environmental?.soilType && Boolean(formik.errors.environmental?.soilType)}
+            helperText={formik.touched.environmental?.soilType && formik.errors.environmental?.soilType}
           />
         </Grid>
 
@@ -79,9 +71,9 @@ const EnvironmentalCharacteristics = ({ formik }) => {
               <FormControlLabel
                 control={
                   <Checkbox 
-                    name={fieldName('environmentalFactors.wetlands')}
-                    checked={values.environmentalFactors?.wetlands || false}
-                    onChange={handleChange}
+                    name="environmental.environmentalFactors.wetlands"
+                    checked={formik.values.environmental.environmentalFactors?.wetlands || false}
+                    onChange={formik.handleChange}
                   />
                 }
                 label="Protected Wetlands"
@@ -89,9 +81,9 @@ const EnvironmentalCharacteristics = ({ formik }) => {
               <FormControlLabel
                 control={
                   <Checkbox 
-                    name={fieldName('environmentalFactors.endangeredSpecies')}
-                    checked={values.environmentalFactors?.endangeredSpecies || false}
-                    onChange={handleChange}
+                    name="environmental.environmentalFactors.endangeredSpecies"
+                    checked={formik.values.environmental.environmentalFactors?.endangeredSpecies || false}
+                    onChange={formik.handleChange}
                   />
                 }
                 label="Endangered Species Habitat"
@@ -99,9 +91,9 @@ const EnvironmentalCharacteristics = ({ formik }) => {
               <FormControlLabel
                 control={
                   <Checkbox 
-                    name={fieldName('environmentalFactors.contaminationHistory')}
-                    checked={values.environmentalFactors?.contaminationHistory || false}
-                    onChange={handleChange}
+                    name="environmental.environmentalFactors.contaminationHistory"
+                    checked={formik.values.environmental.environmentalFactors?.contaminationHistory || false}
+                    onChange={formik.handleChange}
                   />
                 }
                 label="History of Contamination"
@@ -116,10 +108,10 @@ const EnvironmentalCharacteristics = ({ formik }) => {
             <Select
               labelId="environmental-assessment-label"
               id="environmentalAssessment"
-              name={fieldName('environmentalAssessment')}
-              value={values.environmentalAssessment || ''}
-              onChange={handleChange}
-              error={formik.touched.environmentalAssessment && Boolean(formik.errors.environmentalAssessment)}
+              name="environmental.environmentalAssessment"
+              value={formik.values.environmental.environmentalAssessment || ''}
+              onChange={formik.handleChange}
+              error={formik.touched.environmental?.environmentalAssessment && Boolean(formik.errors.environmental?.environmentalAssessment)}
               label="Environmental Assessment"
             >
               <MenuItem value="">Select Assessment Level</MenuItem>
@@ -135,14 +127,14 @@ const EnvironmentalCharacteristics = ({ formik }) => {
           <TextField
             fullWidth
             id="assessmentDate"
-            name={fieldName('assessmentDate')}
+            name="environmental.assessmentDate"
             label="Assessment Date"
             type="date"
-            value={values.assessmentDate || ''}
-            onChange={handleChange}
+            value={formik.values.environmental.assessmentDate || ''}
+            onChange={formik.handleChange}
             InputLabelProps={{ shrink: true }}
-            error={formik.touched.assessmentDate && Boolean(formik.errors.assessmentDate)}
-            helperText={formik.touched.assessmentDate && formik.errors.assessmentDate}
+            error={formik.touched.environmental?.assessmentDate && Boolean(formik.errors.environmental?.assessmentDate)}
+            helperText={formik.touched.environmental?.assessmentDate && formik.errors.environmental?.assessmentDate}
           />
         </Grid>
 
@@ -150,12 +142,12 @@ const EnvironmentalCharacteristics = ({ formik }) => {
           <TextField
             fullWidth
             id="environmentalNotes"
-            name={fieldName('environmentalNotes')}
+            name="environmental.environmentalNotes"
             label="Environmental Notes"
             multiline
             rows={4}
-            value={values.environmentalNotes || ''}
-            onChange={handleChange}
+            value={formik.values.environmental.environmentalNotes || ''}
+            onChange={formik.handleChange}
           />
         </Grid>
       </Grid>

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useAppraisal } from '../context/AppraisalContext';
 import {
   Box,
   Container,
@@ -14,9 +15,10 @@ import {
 } from '@mui/material';
 
 // This component manages the overall workflow navigation and progress
-const WorkflowNavigator = ({ children, currentStep }) => {
+const WorkflowNavigator = ({ children, currentStep, formik }) => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { setSubjectProperty, subjectProperty } = useAppraisal();
   
   // Define all steps in the workflow
   const workflowSteps = [
@@ -73,6 +75,27 @@ const WorkflowNavigator = ({ children, currentStep }) => {
     }
   }, []);
 
+  // Safety sync: Ensure subject property data is available when entering Valuation steps
+  useEffect(() => {
+    const currentStepIndex = getCurrentStepIndex();
+    const currentStepData = workflowSteps[currentStepIndex];
+    
+    // If we're in a Valuation step and don't have subject property data
+    if (currentStepData && currentStepData.group === 'Valuation') {
+      // Check if subject property is missing or incomplete
+      const hasValidSubjectProperty = subjectProperty && 
+        subjectProperty.identification && 
+        subjectProperty.identification.streetAddress;
+      
+      // If missing and formik has data, sync it
+      if (!hasValidSubjectProperty && formik && formik.values && 
+          formik.values.identification && formik.values.identification.streetAddress) {
+        console.log('WorkflowNavigator: Auto-syncing subject property for Valuation step');
+        setSubjectProperty(formik.values);
+      }
+    }
+  }, [location.pathname, subjectProperty, formik, setSubjectProperty]);
+
   // Update active step when path changes
   useEffect(() => {
     setActiveStep(getCurrentStepIndex());
@@ -94,17 +117,29 @@ const WorkflowNavigator = ({ children, currentStep }) => {
 
   // Navigation functions
   const handleNext = () => {
-    if (activeStep < workflowSteps.length - 1) {
+    const currentStepIndex = activeStep;
+    const nextStepIndex = activeStep + 1;
+
+    if (nextStepIndex < workflowSteps.length) {
+      const currentGroup = workflowSteps[currentStepIndex].group;
+      const nextGroup = workflowSteps[nextStepIndex].group;
+
+      // When moving from data entry to valuation, set the subject property.
+      if (currentGroup !== 'Valuation' && nextGroup === 'Valuation') {
+        if (formik && formik.values) {
+          setSubjectProperty(formik.values);
+        }
+      }
+
       // Mark current step as completed
-      const currentStepId = workflowSteps[activeStep].id;
+      const currentStepId = workflowSteps[currentStepIndex].id;
       setCompletedSteps(prev => ({
         ...prev,
-        [currentStepId]: true
+        [currentStepId]: true,
       }));
-      
-      // Navigate to next step
-      const nextStep = activeStep + 1;
-      navigate(workflowSteps[nextStep].path);
+
+      // Navigate to the next step
+      navigate(workflowSteps[nextStepIndex].path);
     }
   };
 

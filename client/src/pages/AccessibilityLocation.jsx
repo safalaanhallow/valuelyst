@@ -18,16 +18,7 @@ import {
 } from '@mui/material';
 
 const AccessibilityLocation = ({ formik }) => {
-  // Ensure values is initialized
-  const values = formik.values || {};
-  
-  // Helper function to create the fully qualified field name with prefix
-  const fieldName = (name) => `accessibility.${name}`;
 
-  // Helper to handle onChange for this component
-  const handleChange = (e) => {
-    formik.handleChange(e);
-  };
   return (
     <Paper elevation={3} sx={{ p: 3 }}>
       <Typography variant="h5" gutterBottom>
@@ -47,12 +38,14 @@ const AccessibilityLocation = ({ formik }) => {
           <TextField
             fullWidth
             id="walkScore"
-            name={fieldName('walkScore')}
+            name="accessibility.walkScore"
             label="Walk Score (0-100)"
             type="number"
             InputProps={{ inputProps: { min: 0, max: 100 } }}
-            value={values.walkScore || ''}
-            onChange={handleChange}
+            value={formik.values.accessibility.walkScore || ''}
+            onChange={formik.handleChange}
+            error={formik.touched.accessibility?.walkScore && Boolean(formik.errors.accessibility?.walkScore)}
+            helperText={formik.touched.accessibility?.walkScore && formik.errors.accessibility?.walkScore}
           />
         </Grid>
 
@@ -60,12 +53,14 @@ const AccessibilityLocation = ({ formik }) => {
           <TextField
             fullWidth
             id="transitScore"
-            name={fieldName('transitScore')}
+            name="accessibility.transitScore"
             label="Transit Score (0-100)"
             type="number"
             InputProps={{ inputProps: { min: 0, max: 100 } }}
-            value={values.transitScore || ''}
-            onChange={handleChange}
+            value={formik.values.accessibility.transitScore || ''}
+            onChange={formik.handleChange}
+            error={formik.touched.accessibility?.transitScore && Boolean(formik.errors.accessibility?.transitScore)}
+            helperText={formik.touched.accessibility?.transitScore && formik.errors.accessibility?.transitScore}
           />
         </Grid>
 
@@ -73,12 +68,12 @@ const AccessibilityLocation = ({ formik }) => {
           <TextField
             fullWidth
             id="distanceToHighway"
-            name={fieldName('distanceToHighway')}
+            name="accessibility.distanceToHighway"
             label="Distance to Highway (miles)"
             type="number"
             InputProps={{ inputProps: { min: 0, step: 0.1 } }}
-            value={values.distanceToHighway || ''}
-            onChange={handleChange}
+            value={formik.values.accessibility.distanceToHighway || ''}
+            onChange={formik.handleChange}
           />
         </Grid>
 
@@ -86,12 +81,12 @@ const AccessibilityLocation = ({ formik }) => {
           <TextField
             fullWidth
             id="distanceToAirport"
-            name={fieldName('distanceToAirport')}
+            name="accessibility.distanceToAirport"
             label="Distance to Airport (miles)"
             type="number"
             InputProps={{ inputProps: { min: 0, step: 0.1 } }}
-            value={values.distanceToAirport || ''}
-            onChange={handleChange}
+            value={formik.values.accessibility.distanceToAirport || ''}
+            onChange={formik.handleChange}
           />
         </Grid>
 
@@ -102,9 +97,9 @@ const AccessibilityLocation = ({ formik }) => {
               <FormControlLabel
                 control={
                   <Checkbox 
-                    name={fieldName('accessibilityFeatures.adaCompliant')}
-                    checked={values.accessibilityFeatures?.adaCompliant || false}
-                    onChange={handleChange}
+                    name="accessibility.accessibilityFeatures.adaCompliant"
+                    checked={formik.values.accessibility.accessibilityFeatures?.adaCompliant || false}
+                    onChange={formik.handleChange}
                   />
                 }
                 label="ADA Compliant"
@@ -112,9 +107,9 @@ const AccessibilityLocation = ({ formik }) => {
               <FormControlLabel
                 control={
                   <Checkbox 
-                    name={fieldName('accessibilityFeatures.wheelchairRamps')}
-                    checked={values.accessibilityFeatures?.wheelchairRamps || false}
-                    onChange={handleChange}
+                    name="accessibility.accessibilityFeatures.wheelchairRamps"
+                    checked={formik.values.accessibility.accessibilityFeatures?.wheelchairRamps || false}
+                    onChange={formik.handleChange}
                   />
                 }
                 label="Wheelchair Ramps"
@@ -122,9 +117,9 @@ const AccessibilityLocation = ({ formik }) => {
               <FormControlLabel
                 control={
                   <Checkbox 
-                    name={fieldName('accessibilityFeatures.accessibleParking')}
-                    checked={values.accessibilityFeatures?.accessibleParking || false}
-                    onChange={handleChange}
+                    name="accessibility.accessibilityFeatures.accessibleParking"
+                    checked={formik.values.accessibility.accessibilityFeatures?.accessibleParking || false}
+                    onChange={formik.handleChange}
                   />
                 }
                 label="Accessible Parking"
@@ -132,9 +127,9 @@ const AccessibilityLocation = ({ formik }) => {
               <FormControlLabel
                 control={
                   <Checkbox 
-                    name={fieldName('accessibilityFeatures.accessibleRestrooms')}
-                    checked={values.accessibilityFeatures?.accessibleRestrooms || false}
-                    onChange={handleChange}
+                    name="accessibility.accessibilityFeatures.accessibleRestrooms"
+                    checked={formik.values.accessibility.accessibilityFeatures?.accessibleRestrooms || false}
+                    onChange={formik.handleChange}
                   />
                 }
                 label="Accessible Restrooms"
@@ -152,10 +147,10 @@ const AccessibilityLocation = ({ formik }) => {
           <Box sx={{ px: 1 }}>
             <Typography gutterBottom>Retail Proximity</Typography>
             <Rating
-              name="retailProximity"
-              value={Number(formik.values.retailProximity) || 0}
+              name="accessibility.retailProximity"
+              value={Number(formik.values.accessibility.retailProximity) || 0}
               onChange={(event, newValue) => {
-                formik.setFieldValue('retailProximity', newValue);
+                formik.setFieldValue('accessibility.retailProximity', newValue);
               }}
             />
           </Box>
@@ -165,10 +160,10 @@ const AccessibilityLocation = ({ formik }) => {
           <Box sx={{ px: 1 }}>
             <Typography gutterBottom>Restaurant Proximity</Typography>
             <Rating
-              name="restaurantProximity"
-              value={Number(formik.values.restaurantProximity) || 0}
+              name="accessibility.restaurantProximity"
+              value={Number(formik.values.accessibility.restaurantProximity) || 0}
               onChange={(event, newValue) => {
-                formik.setFieldValue('restaurantProximity', newValue);
+                formik.setFieldValue('accessibility.restaurantProximity', newValue);
               }}
             />
           </Box>
@@ -178,10 +173,10 @@ const AccessibilityLocation = ({ formik }) => {
           <Box sx={{ px: 1 }}>
             <Typography gutterBottom>Entertainment Proximity</Typography>
             <Rating
-              name="entertainmentProximity"
-              value={Number(formik.values.entertainmentProximity) || 0}
+              name="accessibility.entertainmentProximity"
+              value={Number(formik.values.accessibility.entertainmentProximity) || 0}
               onChange={(event, newValue) => {
-                formik.setFieldValue('entertainmentProximity', newValue);
+                formik.setFieldValue('accessibility.entertainmentProximity', newValue);
               }}
             />
           </Box>
@@ -191,11 +186,11 @@ const AccessibilityLocation = ({ formik }) => {
           <TextField
             fullWidth
             id="nearbyAmenities"
-            name="nearbyAmenities"
+            name="accessibility.nearbyAmenities"
             label="Notable Nearby Amenities"
             multiline
             rows={3}
-            value={formik.values.nearbyAmenities || ''}
+            value={formik.values.accessibility.nearbyAmenities || ''}
             onChange={formik.handleChange}
           />
         </Grid>
@@ -204,11 +199,11 @@ const AccessibilityLocation = ({ formik }) => {
           <TextField
             fullWidth
             id="locationNotes"
-            name="locationNotes"
+            name="accessibility.locationNotes"
             label="Location Notes"
             multiline
             rows={3}
-            value={formik.values.locationNotes || ''}
+            value={formik.values.accessibility.locationNotes || ''}
             onChange={formik.handleChange}
           />
         </Grid>
@@ -222,10 +217,10 @@ const AccessibilityLocation = ({ formik }) => {
           <TextField
             fullWidth
             id="medianIncomeZip"
-            name="medianIncomeZip"
+            name="accessibility.medianIncomeZip"
             label="Median Income (ZIP)"
             type="number"
-            value={formik.values.medianIncomeZip || ''}
+            value={formik.values.accessibility.medianIncomeZip || ''}
             onChange={formik.handleChange}
           />
         </Grid>
@@ -234,10 +229,10 @@ const AccessibilityLocation = ({ formik }) => {
           <TextField
             fullWidth
             id="populationDensity"
-            name="populationDensity"
+            name="accessibility.populationDensity"
             label="Population Density"
             type="number"
-            value={formik.values.populationDensity || ''}
+            value={formik.values.accessibility.populationDensity || ''}
             onChange={formik.handleChange}
           />
         </Grid>
@@ -246,11 +241,11 @@ const AccessibilityLocation = ({ formik }) => {
           <TextField
             fullWidth
             id="employmentRate"
-            name="employmentRate"
+            name="accessibility.employmentRate"
             label="Employment Rate (%)"
             type="number"
             InputProps={{ inputProps: { min: 0, max: 100 } }}
-            value={formik.values.employmentRate || ''}
+            value={formik.values.accessibility.employmentRate || ''}
             onChange={formik.handleChange}
           />
         </Grid>

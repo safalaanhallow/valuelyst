@@ -48,4 +48,15 @@ module.exports = function(app) {
   app.get('/api/organizations/:orgId/properties', [
     authJwt.verifyToken
   ], controller.getOrganizationProperties);
+
+  // Get available comps for selection
+  app.get('/api/properties/comps/available', [
+    authJwt.verifyToken
+  ], controller.getAvailableComps);
+
+  // Generate commercial property appraisal
+  app.post('/api/properties/appraisal/generate', [
+    authJwt.verifyToken,
+    authJwt.requireMFA
+  ], controller.generateAppraisal);
 };

@@ -1,186 +1,202 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
+import { useAppraisal } from '../context/AppraisalContext'; // Import useAppraisal
 import {
   Box,
-  Container,
-  Paper,
+  CircularProgress,
   Typography,
   Grid,
-  Divider,
-  Card,
-  CardContent,
+  Paper,
+  Alert,
   Button,
+  Divider,
   List,
   ListItem,
-  ListItemText
+  ListItemText,
+  ListItemIcon,
 } from '@mui/material';
+import {
+  TrendingUp as TrendingUpIcon,
+  TrendingDown as TrendingDownIcon,
+} from '@mui/icons-material';
+
+// Helper to format currency
+const formatCurrency = (value) =>
+  new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(value);
 
 const ValuationResults = () => {
-  // In a real app, this data would come from the previous steps and API calculations
-  const valuationData = {
-    propertyName: '123 Example Property',
-    estimatedValue: 1680000,
-    capRate: 5.1,
-    pricePerSqFt: 315,
-    noi: 85680,
-    compsUsed: 3,
-    confidenceScore: 87,
-    valuationMethods: [
-      { name: 'Sales Comparison Approach', value: 1650000, weight: 0.5 },
-      { name: 'Income Approach', value: 1710000, weight: 0.4 },
-      { name: 'Cost Approach', value: 1690000, weight: 0.1 }
-    ],
-    adjustmentFactors: {
-      location: 1.05,
-      size: 0.95,
-      age: 1.0,
-      condition: 1.1,
-      amenities: 1.0
-    }
-  };
-
-  const handleExportPDF = () => {
-    console.log('Exporting PDF report...');
-    // This would call a function to generate and download a PDF report
-    alert('PDF report would be generated here in the final implementation');
-  };
-
+  const [valuationData, setValuationData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const navigate = useNavigate();
+  const { subjectProperty, selectedComps } = useAppraisal(); // Use context
 
-  const handleSaveValuation = () => {
-    console.log('Saving valuation...');
-    // This would save the valuation to the database
-    alert('Valuation saved to database');
-    
-    // Redirect to the property dashboard or listing
-    navigate('/');
-  };
+  useEffect(() => {
+    if (!subjectProperty || !selectedComps || selectedComps.length === 0) {
+      setError('No subject property or comparables selected. Please start a new appraisal.');
+      setLoading(false);
+      return;
+    }
 
-  return (
-    <Container maxWidth="lg">
-      <Paper elevation={3} sx={{ p: 3, my: 3 }}>
-        <Typography variant="h4" gutterBottom>
-          Valuation Results
-        </Typography>
+    const generateValuation = async () => {
+      try {
+        setLoading(true);
+        setError(null);
         
-        <Grid container spacing={4}>
-          {/* Key Valuation Results */}
-          <Grid item xs={12} md={6}>
-            <Card elevation={2} sx={{ mb: 3, bgcolor: 'primary.light', color: 'primary.contrastText' }}>
-              <CardContent>
-                <Typography variant="h5" gutterBottom>
-                  Estimated Value
-                </Typography>
-                <Typography variant="h3">
-                  ${valuationData.estimatedValue.toLocaleString()}
-                </Typography>
-                <Typography variant="subtitle1">
-                  Confidence Score: {valuationData.confidenceScore}%
-                </Typography>
-              </CardContent>
-            </Card>
+        // Structure the payload according to backend expectations
+        const payload = {
+          propertyId: subjectProperty.id,
+          selectedCompIds: selectedComps.map(c => c.property.id), // Correctly map comp IDs
+          subjectPropertyData: subjectProperty, // Send full subject property data
+          adjustments: selectedComps.reduce((acc, comp) => {
+            acc[comp.property.id] = comp.adjustments || {};
+            return acc;
+          }, {})
+        };
 
-            <Grid container spacing={2}>
-              <Grid item xs={6}>
-                <Card elevation={1}>
-                  <CardContent>
-                    <Typography variant="subtitle2" color="textSecondary">Cap Rate</Typography>
-                    <Typography variant="h6">{valuationData.capRate}%</Typography>
-                  </CardContent>
-                </Card>
-              </Grid>
-              <Grid item xs={6}>
-                <Card elevation={1}>
-                  <CardContent>
-                    <Typography variant="subtitle2" color="textSecondary">Price per SqFt</Typography>
-                    <Typography variant="h6">${valuationData.pricePerSqFt}</Typography>
-                  </CardContent>
-                </Card>
-              </Grid>
-              <Grid item xs={6}>
-                <Card elevation={1}>
-                  <CardContent>
-                    <Typography variant="subtitle2" color="textSecondary">NOI (Annual)</Typography>
-                    <Typography variant="h6">${valuationData.noi.toLocaleString()}</Typography>
-                  </CardContent>
-                </Card>
-              </Grid>
-              <Grid item xs={6}>
-                <Card elevation={1}>
-                  <CardContent>
-                    <Typography variant="subtitle2" color="textSecondary">Comps Used</Typography>
-                    <Typography variant="h6">{valuationData.compsUsed}</Typography>
-                  </CardContent>
-                </Card>
-              </Grid>
-            </Grid>
+        const response = await axios.post('/api/properties/appraisal/generate', payload);
+
+        if (response.data.error) {
+          setError(response.data.message || 'An error occurred during valuation.');
+          setValuationData(null);
+        } else {
+          setValuationData(response.data);
+        }
+      } catch (err) {
+        console.error('Valuation API Error:', err);
+        setError(err.response?.data?.message || 'A server error occurred. Please try again.');
+        setValuationData(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    generateValuation();
+  }, [subjectProperty, selectedComps]);
+
+  const renderValuationDetails = () => {
+    if (!valuationData || !valuationData.valuation) return null;
+    const { valuation } = valuationData;
+    const { finalValue, confidenceScore, capRate, pricePerSqFt, methods, adjustments } = valuation;
+
+    return (
+      <Paper elevation={3} sx={{ p: 4, mt: 4 }}>
+        <Typography variant="h4" gutterBottom align="center" sx={{ fontWeight: 'bold' }}>
+          Estimated Value
+        </Typography>
+        <Typography variant="h2" align="center" color="primary" sx={{ fontWeight: 'bold', mb: 1 }}>
+          {formatCurrency(finalValue)}
+        </Typography>
+        <Grid container justifyContent="center" spacing={2} sx={{ mb: 4 }}>
+          <Grid item>
+            <Typography variant="subtitle1" align="center">
+              Confidence Score: <strong>{confidenceScore}%</strong>
+            </Typography>
           </Grid>
+          <Grid item>
+            <Typography variant="subtitle1" align="center">
+              Cap Rate: <strong>{capRate.toFixed(1)}%</strong>
+            </Typography>
+          </Grid>
+          <Grid item>
+            <Typography variant="subtitle1" align="center">
+              Price per SqFt: <strong>{formatCurrency(pricePerSqFt)}</strong>
+            </Typography>
+          </Grid>
+        </Grid>
 
-          {/* Valuation Methods Breakdown */}
+        <Divider sx={{ my: 3 }} />
+
+        <Grid container spacing={4}>
           <Grid item xs={12} md={6}>
             <Typography variant="h6" gutterBottom>Valuation Methods</Typography>
-            <List>
-              {valuationData.valuationMethods.map((method, index) => (
-                <ListItem key={index} divider={index < valuationData.valuationMethods.length - 1}>
-                  <ListItemText 
+            <List dense>
+              {methods.map(method => (
+                <ListItem key={method.name}>
+                  <ListItemText
                     primary={method.name}
-                    secondary={`Weight: ${method.weight * 100}%`}
+                    secondary={`Weight: ${method.weight}%`}
                   />
-                  <Typography variant="body1">
-                    ${method.value.toLocaleString()}
+                  <Typography variant="body1" sx={{ fontWeight: 'bold' }}>
+                    {formatCurrency(method.value)}
                   </Typography>
                 </ListItem>
               ))}
             </List>
-
-            <Typography variant="h6" gutterBottom sx={{ mt: 3 }}>Adjustment Factors Applied</Typography>
-            <Grid container spacing={2}>
-              {Object.entries(valuationData.adjustmentFactors).map(([factor, value]) => (
-                <Grid item xs={6} sm={4} key={factor}>
-                  <Card variant="outlined">
-                    <CardContent>
-                      <Typography variant="subtitle2" sx={{ textTransform: 'capitalize' }}>
-                        {factor}
-                      </Typography>
-                      <Typography variant="body1">
-                        {value < 1 ? '-' : '+'}{Math.abs((value - 1) * 100).toFixed(0)}%
-                      </Typography>
-                    </CardContent>
-                  </Card>
-                </Grid>
+          </Grid>
+          <Grid item xs={12} md={6}>
+            <Typography variant="h6" gutterBottom>Key Adjustments</Typography>
+            <List dense>
+              {adjustments.map(adj => (
+                <ListItem key={adj.factor}>
+                  <ListItemIcon>
+                    {adj.adjustment >= 0 ? <TrendingUpIcon color="success" /> : <TrendingDownIcon color="error" />}
+                  </ListItemIcon>
+                  <ListItemText
+                    primary={adj.factor.charAt(0).toUpperCase() + adj.factor.slice(1)}
+                  />
+                  <Typography variant="body1" color={adj.adjustment >= 0 ? 'success.main' : 'error.main'}>
+                    {adj.adjustment >= 0 ? '+' : ''}{adj.adjustment}%
+                  </Typography>
+                </ListItem>
               ))}
-            </Grid>
+            </List>
           </Grid>
         </Grid>
-
-        <Divider sx={{ my: 4 }} />
-        
-        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-          <Button 
-            variant="outlined"
-            onClick={() => window.history.back()}
-          >
-            Back to Comparables
-          </Button>
-          <Box>
-            <Button 
-              variant="outlined" 
-              sx={{ mr: 2 }}
-              onClick={handleExportPDF}
-            >
-              Export PDF Report
-            </Button>
-            <Button 
-              variant="contained" 
-              color="primary"
-              onClick={handleSaveValuation}
-            >
-              Save Valuation
-            </Button>
-          </Box>
-        </Box>
       </Paper>
-    </Container>
+    );
+  };
+
+  return (
+    <Box sx={{ maxWidth: 900, mx: 'auto', p: 3 }}>
+      <Typography variant="h3" gutterBottom>Valuation Results</Typography>
+
+      {loading && (
+        <Box sx={{ display: 'flex', justifyContent: 'center', my: 5 }}>
+          <CircularProgress />
+          <Typography variant="h6" sx={{ ml: 2 }}>Generating your comprehensive valuation report...</Typography>
+        </Box>
+      )}
+
+      {error && (
+        <Alert severity="error" sx={{ mt: 3 }}>
+          <Typography gutterBottom><strong>Valuation Failed</strong></Typography>
+          <Typography>{error}</Typography>
+          <Button
+            variant="outlined"
+            color="inherit"
+            size="small"
+            onClick={() => navigate('/')}
+            sx={{ mt: 2 }}
+          >
+            Start New Appraisal
+          </Button>
+        </Alert>
+      )}
+
+      {!loading && !error && valuationData && renderValuationDetails()}
+      
+      {!loading && !error && !valuationData && (
+         <Alert severity="info" sx={{ mt: 3 }}>
+          <Typography>No valuation data to display.</Typography>
+           <Button
+            variant="outlined"
+            color="inherit"
+            size="small"
+            onClick={() => navigate('/')}
+            sx={{ mt: 2 }}
+          >
+            Start New Appraisal
+          </Button>
+        </Alert>
+      )}
+    </Box>
   );
 };
 

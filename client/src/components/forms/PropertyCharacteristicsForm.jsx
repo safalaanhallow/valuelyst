@@ -23,7 +23,12 @@ const PropertyCharacteristicsForm = () => {
 
   // Initial form values
   const initialValues = {
-    // Identification tab
+    // Identification tab - Property Type Classification
+    propertyType: '',
+    propertySubtype: '',
+    propertyNotes: '',
+    
+    // Identification tab - Property Data
     apn: '',
     lastSaleDate: null,
     latitude: 40.7128, // Default to NYC

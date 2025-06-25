@@ -1,12 +1,13 @@
 const fs = require('fs');
 const path = require('path');
 const { parse } = require('csv-parse');
+const XLSX = require('xlsx');
 const db = require('../models');
 const Property = db.properties;
 const User = db.users;
 const multer = require('multer');
 
-// Set up multer storage for CSV uploads
+// Set up multer storage for file uploads
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     const uploadDir = path.join(__dirname, '../uploads');
@@ -20,13 +21,17 @@ const storage = multer.diskStorage({
   }
 });
 
-// File filter to only accept CSV files
+// File filter to accept CSV and Excel files
 const fileFilter = (req, file, cb) => {
   if (file.mimetype === 'text/csv' || 
-      file.originalname.endsWith('.csv')) {
+      file.mimetype === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+      file.mimetype === 'application/vnd.ms-excel' ||
+      file.originalname.endsWith('.csv') ||
+      file.originalname.endsWith('.xlsx') ||
+      file.originalname.endsWith('.xls')) {
     cb(null, true);
   } else {
-    cb(new Error('Only CSV files are allowed'), false);
+    cb(new Error('Only CSV and Excel files are allowed'), false);
   }
 };
 
@@ -50,7 +55,7 @@ const importController = {
       }
       
       if (!req.file) {
-        return res.status(400).send({ message: 'Please upload a CSV file' });
+        return res.status(400).send({ message: 'Please upload a CSV or Excel file' });
       }
       
       try {
@@ -88,74 +93,140 @@ const importController = {
         return res.status(404).send({ message: 'File not found' });
       }
       
-      // Parse CSV file and process data
-      const records = [];
-      const validationIssues = [];
-      const parser = fs
-        .createReadStream(filePath)
-        .pipe(
-          parse({
-            columns: true,
-            skip_empty_lines: true,
-            trim: true
-          })
-        );
+      let records = [];
+      let validationIssues = [];
       
-      // Get validation flags from middleware
-      const { validateCapRate, validateRentableArea, validateFloodZone, validateTenantRent } = req.validationFlags || {};
-      
-      for await (const record of parser) {
-        // Apply field mappings
-        const mappedRecord = {};
+      if (filename.endsWith('.csv')) {
+        // Parse CSV file and process data
+        const parser = fs
+          .createReadStream(filePath)
+          .pipe(
+            parse({
+              columns: true,
+              skip_empty_lines: true,
+              trim: true
+            })
+          );
         
-        Object.keys(mappings).forEach(targetField => {
-          const sourceField = mappings[targetField];
-          if (sourceField && record[sourceField] !== undefined) {
-            mappedRecord[targetField] = record[sourceField];
-          }
-        });
+        // Get validation flags from middleware
+        const { validateCapRate, validateRentableArea, validateFloodZone, validateTenantRent } = req.validationFlags || {};
         
-        // Only add records that have at least some data
-        if (Object.keys(mappedRecord).length > 0) {
-          // Generate a unique ID for each comp
-          mappedRecord.id = Date.now() + '-' + Math.floor(Math.random() * 1000);
+        for await (const record of parser) {
+          // Apply field mappings
+          const mappedRecord = {};
           
-          // Perform validations on the record if needed
-          if (validateCapRate) {
-            const capRate = parseFloat(mappedRecord.cap_rate);
-            if (!isNaN(capRate)) {
-              // Convert percentage to decimal if needed
-              const normalizedCapRate = capRate > 1 ? capRate / 100 : capRate;
+          Object.keys(mappings).forEach(targetField => {
+            const sourceField = mappings[targetField];
+            if (sourceField && record[sourceField] !== undefined) {
+              mappedRecord[targetField] = record[sourceField];
+            }
+          });
+          
+          // Only add records that have at least some data
+          if (Object.keys(mappedRecord).length > 0) {
+            // Generate a unique ID for each comp
+            mappedRecord.id = Date.now() + '-' + Math.floor(Math.random() * 1000);
+            
+            // Perform validations on the record if needed
+            if (validateCapRate) {
+              const capRate = parseFloat(mappedRecord.cap_rate);
+              if (!isNaN(capRate)) {
+                // Convert percentage to decimal if needed
+                const normalizedCapRate = capRate > 1 ? capRate / 100 : capRate;
+                
+                if (normalizedCapRate < 0.05 || normalizedCapRate > 0.15) {
+                  validationIssues.push({
+                    recordIndex: records.length,
+                    propertyName: mappedRecord.property_name || `Record ${records.length + 1}`,
+                    field: 'cap_rate',
+                    value: mappedRecord.cap_rate,
+                    message: `Cap Rate must be between 5% and 15%`
+                  });
+                }
+              }
+            }
+            
+            if (validateRentableArea) {
+              const rentableArea = parseFloat(mappedRecord.total_rentable_area);
+              const occupiedSpace = parseFloat(mappedRecord.occupied_space);
               
-              if (normalizedCapRate < 0.05 || normalizedCapRate > 0.15) {
+              if (!isNaN(rentableArea) && !isNaN(occupiedSpace) && rentableArea < occupiedSpace) {
                 validationIssues.push({
                   recordIndex: records.length,
                   propertyName: mappedRecord.property_name || `Record ${records.length + 1}`,
-                  field: 'cap_rate',
-                  value: mappedRecord.cap_rate,
-                  message: `Cap Rate must be between 5% and 15%`
+                  field: 'total_rentable_area',
+                  value: mappedRecord.total_rentable_area,
+                  message: `Net Rentable Area must be greater than or equal to Occupied Space (${occupiedSpace})`
                 });
               }
             }
-          }
-          
-          if (validateRentableArea) {
-            const rentableArea = parseFloat(mappedRecord.total_rentable_area);
-            const occupiedSpace = parseFloat(mappedRecord.occupied_space);
             
-            if (!isNaN(rentableArea) && !isNaN(occupiedSpace) && rentableArea < occupiedSpace) {
-              validationIssues.push({
-                recordIndex: records.length,
-                propertyName: mappedRecord.property_name || `Record ${records.length + 1}`,
-                field: 'total_rentable_area',
-                value: mappedRecord.total_rentable_area,
-                message: `Net Rentable Area must be greater than or equal to Occupied Space (${occupiedSpace})`
-              });
-            }
+            records.push(mappedRecord);
           }
-          
-          records.push(mappedRecord);
         }
+      } else if (filename.endsWith('.xlsx') || filename.endsWith('.xls')) {
+        // Parse Excel file and process data
+        const workbook = XLSX.readFile(filePath);
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const data = XLSX.utils.sheet_to_json(worksheet);
+        
+        // Get validation flags from middleware
+        const { validateCapRate, validateRentableArea, validateFloodZone, validateTenantRent } = req.validationFlags || {};
+        
+        data.forEach((record, index) => {
+          // Apply field mappings
+          const mappedRecord = {};
+          
+          Object.keys(mappings).forEach(targetField => {
+            const sourceField = mappings[targetField];
+            if (sourceField && record[sourceField] !== undefined) {
+              mappedRecord[targetField] = record[sourceField];
+            }
+          });
+          
+          // Only add records that have at least some data
+          if (Object.keys(mappedRecord).length > 0) {
+            // Generate a unique ID for each comp
+            mappedRecord.id = Date.now() + '-' + Math.floor(Math.random() * 1000);
+            
+            // Perform validations on the record if needed
+            if (validateCapRate) {
+              const capRate = parseFloat(mappedRecord.cap_rate);
+              if (!isNaN(capRate)) {
+                // Convert percentage to decimal if needed
+                const normalizedCapRate = capRate > 1 ? capRate / 100 : capRate;
+                
+                if (normalizedCapRate < 0.05 || normalizedCapRate > 0.15) {
+                  validationIssues.push({
+                    recordIndex: index,
+                    propertyName: mappedRecord.property_name || `Record ${index + 1}`,
+                    field: 'cap_rate',
+                    value: mappedRecord.cap_rate,
+                    message: `Cap Rate must be between 5% and 15%`
+                  });
+                }
+              }
+            }
+            
+            if (validateRentableArea) {
+              const rentableArea = parseFloat(mappedRecord.total_rentable_area);
+              const occupiedSpace = parseFloat(mappedRecord.occupied_space);
+              
+              if (!isNaN(rentableArea) && !isNaN(occupiedSpace) && rentableArea < occupiedSpace) {
+                validationIssues.push({
+                  recordIndex: index,
+                  propertyName: mappedRecord.property_name || `Record ${index + 1}`,
+                  field: 'total_rentable_area',
+                  value: mappedRecord.total_rentable_area,
+                  message: `Net Rentable Area must be greater than or equal to Occupied Space (${occupiedSpace})`
+                });
+              }
+            }
+            
+            records.push(mappedRecord);
+          }
+        });
       }
       
       // Check if there are validation issues
@@ -204,26 +275,37 @@ const importController = {
         return res.status(404).send({ message: 'File not found' });
       }
       
-      // Read first few rows to get column headers and sample data
-      const parser = fs
-        .createReadStream(filePath)
-        .pipe(
-          parse({
-            columns: true,
-            skip_empty_lines: true,
-            trim: true,
-            to: 5 // Read only first 5 rows for preview
-          })
-        );
-      
-      const records = [];
       let columns = [];
+      let records = [];
       
-      for await (const record of parser) {
-        if (records.length === 0) {
-          columns = Object.keys(record);
+      if (filename.endsWith('.csv')) {
+        // Read first few rows to get column headers and sample data
+        const parser = fs
+          .createReadStream(filePath)
+          .pipe(
+            parse({
+              columns: true,
+              skip_empty_lines: true,
+              trim: true,
+              to: 5 // Read only first 5 rows for preview
+            })
+          );
+        
+        for await (const record of parser) {
+          if (records.length === 0) {
+            columns = Object.keys(record);
+          }
+          records.push(record);
         }
-        records.push(record);
+      } else if (filename.endsWith('.xlsx') || filename.endsWith('.xls')) {
+        // Parse Excel file and process data
+        const workbook = XLSX.readFile(filePath);
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const data = XLSX.utils.sheet_to_json(worksheet);
+        
+        columns = Object.keys(data[0]);
+        records = data.slice(0, 5);
       }
       
       res.status(200).send({

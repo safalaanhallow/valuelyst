@@ -6,7 +6,11 @@ import {
   Paper,
   Box,
   MenuItem,
-  InputLabel
+  InputLabel,
+  FormControl,
+  Select,
+  Divider,
+  Chip
 } from '@mui/material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
@@ -16,6 +20,19 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 
 // Replace with your actual Mapbox token
 const MAPBOX_TOKEN = 'pk.placeholder-token-replace-with-actual-mapbox-token';
+
+// Property Types for classification
+const PROPERTY_TYPES = [
+  { name: 'Retail', subtypes: ['Shopping Center', 'Strip Mall', 'Big Box', 'Restaurant', 'Storefront'] },
+  { name: 'Multifamily', subtypes: ['Garden', 'Mid-Rise', 'High-Rise', 'Senior Housing', 'Student Housing'] },
+  { name: 'Office', subtypes: ['Class A', 'Class B', 'Class C', 'Medical', 'Flex'] },
+  { name: 'Industrial', subtypes: ['Warehouse', 'Manufacturing', 'Flex', 'R&D', 'Distribution'] },
+  { name: 'Agricultural', subtypes: ['Cropland', 'Pasture', 'Orchard', 'Vineyard', 'Timberland'] },
+  { name: 'Hotel/Hospitality', subtypes: ['Full-Service', 'Limited-Service', 'Resort', 'Extended Stay'] },
+  { name: 'Special Purpose', subtypes: ['Religious', 'Self-Storage', 'Healthcare', 'Entertainment', 'Sports'] },
+  { name: 'Mixed-Use', subtypes: ['Retail/Office', 'Retail/Residential', 'Office/Residential'] },
+  { name: 'Land', subtypes: ['Development', 'Recreational', 'Rural', 'Urban Infill'] }
+];
 
 // US States for dropdown
 const US_STATES = [
@@ -96,12 +113,113 @@ const IdentificationTab = ({ formik }) => {
     });
   };
 
+  // Handle property type changes
+  const handlePropertyTypeChange = (event) => {
+    const selectedType = event.target.value;
+    formik.setFieldValue('propertyType', selectedType);
+    // Reset the subtype when changing the main type
+    formik.setFieldValue('propertySubtype', '');
+  };
+
+  // Get available subtypes based on selected property type
+  const getAvailableSubtypes = () => {
+    const selectedType = formik.values.propertyType;
+    const typeObject = PROPERTY_TYPES.find(type => type.name === selectedType);
+    return typeObject ? typeObject.subtypes : [];
+  };
+
   return (
     <Paper elevation={0} sx={{ p: 3 }}>
       <Typography variant="h6" gutterBottom>
         Property Identification
       </Typography>
-      <Grid container spacing={3}>
+      
+      {/* Property Type Classification Section */}
+      <Box sx={{ mb: 4 }}>
+        <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 'bold' }}>
+          Property Type Classification
+        </Typography>
+        <Divider sx={{ mb: 2 }} />
+        <Grid container spacing={3}>
+          {/* Property Type Dropdown */}
+          <Grid item xs={12} sm={6}>
+            <FormControl fullWidth>
+              <InputLabel id="property-type-label"><RequiredLabel label="Property Type" /></InputLabel>
+              <Select
+                labelId="property-type-label"
+                id="propertyType"
+                name="propertyType"
+                value={formik.values.propertyType || ''}
+                onChange={handlePropertyTypeChange}
+                error={formik.touched.propertyType && Boolean(formik.errors.propertyType)}
+                label={<RequiredLabel label="Property Type" />}
+              >
+                {PROPERTY_TYPES.map((type) => (
+                  <MenuItem key={type.name} value={type.name}>
+                    {type.name}
+                  </MenuItem>
+                ))}
+              </Select>
+              {formik.touched.propertyType && formik.errors.propertyType && (
+                <Typography variant="caption" color="error">
+                  {formik.errors.propertyType}
+                </Typography>
+              )}
+            </FormControl>
+          </Grid>
+
+          {/* Property Subtype Dropdown - Only visible if a property type is selected */}
+          <Grid item xs={12} sm={6}>
+            <FormControl fullWidth disabled={!formik.values.propertyType}>
+              <InputLabel id="property-subtype-label">Property Subtype</InputLabel>
+              <Select
+                labelId="property-subtype-label"
+                id="propertySubtype"
+                name="propertySubtype"
+                value={formik.values.propertySubtype || ''}
+                onChange={formik.handleChange}
+                error={formik.touched.propertySubtype && Boolean(formik.errors.propertySubtype)}
+                label="Property Subtype"
+              >
+                {getAvailableSubtypes().map((subtype) => (
+                  <MenuItem key={subtype} value={subtype}>
+                    {subtype}
+                  </MenuItem>
+                ))}
+              </Select>
+              {formik.touched.propertySubtype && formik.errors.propertySubtype && (
+                <Typography variant="caption" color="error">
+                  {formik.errors.propertySubtype}
+                </Typography>
+              )}
+            </FormControl>
+          </Grid>
+          
+          {/* Custom Property Type / Notes Field */}
+          <Grid item xs={12}>
+            <TextField
+              fullWidth
+              id="propertyNotes"
+              name="propertyNotes"
+              label="Additional Property Type Notes"
+              multiline
+              rows={2}
+              value={formik.values.propertyNotes || ''}
+              onChange={formik.handleChange}
+              onBlur={formik.handleBlur}
+              helperText="Provide any additional details about the property type or specific classifications"
+            />
+          </Grid>
+        </Grid>
+      </Box>
+      
+      {/* Property Identification Section */}
+      <Box sx={{ mb: 3 }}>
+        <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 'bold' }}>
+          Property Identification Data
+        </Typography>
+        <Divider sx={{ mb: 2 }} />
+        <Grid container spacing={3}>
         {/* APN Field with regex validation */}
         <Grid item xs={12} sm={6}>
           <TextField
@@ -288,6 +406,7 @@ const IdentificationTab = ({ formik }) => {
         {/* Additional Identification Fields could be added here */}
         {/* For example: Property Name, Address, City, etc. */}
       </Grid>
+      </Box>
     </Paper>
   );
 };

@@ -10,21 +10,21 @@ module.exports = function(app) {
     next();
   });
 
-  // Upload CSV file
+  // Upload CSV or Excel file
   app.post(
     "/api/import/comps/upload",
     [authJwt.verifyToken],
     controller.uploadCompsCSV
   );
 
-  // Process CSV file
+  // Process CSV or Excel file
   app.post(
     "/api/import/comps/process",
     [authJwt.verifyToken, propertyValidation.validateCompsData],
     controller.processCompsCSV
   );
 
-  // Preview CSV columns
+  // Preview CSV or Excel file columns
   app.get(
     "/api/import/preview/:filename",
     [authJwt.verifyToken],

@@ -19,19 +19,14 @@ import {
   Divider,
   Button
 } from '@mui/material';
-import { createFieldNameHelper, createChangeHandler } from '../utils/formHelpers';
+
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 
 const IncomeStatements = ({ formik }) => {
-  // Create helper functions for this component
-  const fieldName = createFieldNameHelper('income');
-  const handleChange = createChangeHandler(formik);
-  
-  // Ensure values is initialized
-  const values = formik.values || {};
+
   const addRentRollEntry = () => {
-    const rentRoll = [...(formik.values.rentRoll || [])];
+    const rentRoll = [...(formik.values.income.rentRoll || [])];
     rentRoll.push({
       unit: '',
       tenant: '',
@@ -41,17 +36,17 @@ const IncomeStatements = ({ formik }) => {
       annualRent: '',
       rentPSF: ''
     });
-    formik.setFieldValue('rentRoll', rentRoll);
+    formik.setFieldValue('income.rentRoll', rentRoll);
   };
 
   const removeRentRollEntry = (index) => {
-    const rentRoll = [...(formik.values.rentRoll || [])];
+    const rentRoll = [...(formik.values.income.rentRoll || [])];
     rentRoll.splice(index, 1);
-    formik.setFieldValue('rentRoll', rentRoll);
+    formik.setFieldValue('income.rentRoll', rentRoll);
   };
 
   const handleRentRollChange = (index, field, value) => {
-    const rentRoll = [...(formik.values.rentRoll || [])];
+    const rentRoll = [...(formik.values.income.rentRoll || [])];
     rentRoll[index][field] = value;
     
     // Calculate annual rent if monthly rent is provided
@@ -66,10 +61,12 @@ const IncomeStatements = ({ formik }) => {
       const squareFeet = parseFloat(rentRoll[index].squareFeet) || 0;
       if (squareFeet > 0) {
         rentRoll[index].rentPSF = (annualRent / squareFeet).toFixed(2);
+      } else {
+        rentRoll[index].rentPSF = '';
       }
     }
     
-    formik.setFieldValue('rentRoll', rentRoll);
+    formik.setFieldValue('income.rentRoll', rentRoll);
   };
 
   return (
@@ -89,10 +86,12 @@ const IncomeStatements = ({ formik }) => {
             <Select
               labelId="income-period-label"
               id="incomePeriod"
-              name={fieldName('incomePeriod')}
-              value={values.incomePeriod  || ''}
-              onChange={handleChange}
+              name="income.incomePeriod"
+              value={formik.values.income.incomePeriod || ''}
+              onChange={formik.handleChange}
               label="Income Period"
+              error={formik.touched.income?.incomePeriod && Boolean(formik.errors.income?.incomePeriod)}
+              helperText={formik.touched.income?.incomePeriod && formik.errors.income?.incomePeriod}
             >
               <MenuItem value="ttm">Trailing Twelve Months</MenuItem>
               <MenuItem value="annualized">Annualized Current Month</MenuItem>
@@ -106,12 +105,14 @@ const IncomeStatements = ({ formik }) => {
           <TextField
             fullWidth
             id="asOfDate"
-            name={fieldName('asOfDate')}
+            name="income.asOfDate"
             label="As of Date"
             type="date"
-            value={values.asOfDate  || ''}
-            onChange={handleChange}
+            value={formik.values.income.asOfDate || ''}
+            onChange={formik.handleChange}
             InputLabelProps={{ shrink: true }}
+            error={formik.touched.income?.asOfDate && Boolean(formik.errors.income?.asOfDate)}
+            helperText={formik.touched.income?.asOfDate && formik.errors.income?.asOfDate}
           />
         </Grid>
 
@@ -126,12 +127,14 @@ const IncomeStatements = ({ formik }) => {
           <TextField
             fullWidth
             id="baseRent"
-            name={fieldName('baseRent')}
+            name="income.baseRent"
             label="Base Rental Income"
             type="number"
-            value={values.baseRent  || ''}
-            onChange={handleChange}
+            value={formik.values.income.baseRent || ''}
+            onChange={formik.handleChange}
             InputProps={{ startAdornment: '$' }}
+            error={formik.touched.income?.baseRent && Boolean(formik.errors.income?.baseRent)}
+            helperText={formik.touched.income?.baseRent && formik.errors.income?.baseRent}
           />
         </Grid>
 
@@ -139,11 +142,11 @@ const IncomeStatements = ({ formik }) => {
           <TextField
             fullWidth
             id="expenseReimbursements"
-            name={fieldName('expenseReimbursements')}
+            name="income.expenseReimbursements"
             label="Expense Reimbursements"
             type="number"
-            value={values.expenseReimbursements  || ''}
-            onChange={handleChange}
+            value={formik.values.income.expenseReimbursements || ''}
+            onChange={formik.handleChange}
             InputProps={{ startAdornment: '$' }}
           />
         </Grid>
@@ -152,11 +155,11 @@ const IncomeStatements = ({ formik }) => {
           <TextField
             fullWidth
             id="percentageRent"
-            name={fieldName('percentageRent')}
+            name="income.percentageRent"
             label="Percentage Rent"
             type="number"
-            value={values.percentageRent  || ''}
-            onChange={handleChange}
+            value={formik.values.income.percentageRent || ''}
+            onChange={formik.handleChange}
             InputProps={{ startAdornment: '$' }}
           />
         </Grid>
@@ -165,11 +168,11 @@ const IncomeStatements = ({ formik }) => {
           <TextField
             fullWidth
             id="otherIncome"
-            name={fieldName('otherIncome')}
+            name="income.otherIncome"
             label="Other Income"
             type="number"
-            value={values.otherIncome  || ''}
-            onChange={handleChange}
+            value={formik.values.income.otherIncome || ''}
+            onChange={formik.handleChange}
             InputProps={{ startAdornment: '$' }}
           />
         </Grid>
@@ -181,12 +184,12 @@ const IncomeStatements = ({ formik }) => {
             id="potentialGrossIncome"
             label="Potential Gross Income"
             type="number"
-            value={
-              (parseFloat(formik.values.baseRent || 0) +
-              parseFloat(formik.values.expenseReimbursements || 0) +
-              parseFloat(formik.values.percentageRent || 0) +
-              parseFloat(formik.values.otherIncome || 0)).toFixed(2)
-            }
+            value={Number(
+              (parseFloat(formik.values.income.baseRent || 0) +
+              parseFloat(formik.values.income.expenseReimbursements || 0) +
+              parseFloat(formik.values.income.percentageRent || 0) +
+              parseFloat(formik.values.income.otherIncome || 0)).toFixed(2)
+            )}
             InputProps={{ startAdornment: '$' }}
           />
         </Grid>
@@ -223,23 +226,32 @@ const IncomeStatements = ({ formik }) => {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {(formik.values.rentRoll || []).map((entry, index) => (
-                  <TableRow key={index}>
+                {(formik.values.income.rentRoll || []).map((entry, index) => {
+                  const getError = (field) => 
+                    formik.touched.income?.rentRoll?.[index]?.[field] && 
+                    formik.errors.income?.rentRoll?.[index]?.[field];
+
+                  return (
+                    <TableRow key={index}>
                     <TableCell>
                       <TextField
-                        fullWidth
-                        size="small"
-                        value={entry.unit || ''}
-                        onChange={(e) => handleRentRollChange(index, 'unit', e.target.value)}
-                      />
+                          fullWidth
+                          size="small"
+                          value={entry.unit || ''}
+                          onChange={(e) => handleRentRollChange(index, 'unit', e.target.value)}
+                          error={!!getError('unit')}
+                          helperText={getError('unit')}
+                        />
                     </TableCell>
                     <TableCell>
                       <TextField
-                        fullWidth
-                        size="small"
-                        value={entry.tenant || ''}
-                        onChange={(e) => handleRentRollChange(index, 'tenant', e.target.value)}
-                      />
+                          fullWidth
+                          size="small"
+                          value={entry.tenant || ''}
+                          onChange={(e) => handleRentRollChange(index, 'tenant', e.target.value)}
+                          error={!!getError('tenant')}
+                          helperText={getError('tenant')}
+                        />
                     </TableCell>
                     <TableCell>
                       <TextField
@@ -272,13 +284,15 @@ const IncomeStatements = ({ formik }) => {
                     </TableCell>
                     <TableCell>
                       <TextField
-                        fullWidth
-                        size="small"
-                        type="number"
-                        value={entry.monthlyRent || ''}
-                        onChange={(e) => handleRentRollChange(index, 'monthlyRent', e.target.value)}
-                        InputProps={{ startAdornment: '$' }}
-                      />
+                          fullWidth
+                          size="small"
+                          type="number"
+                          value={entry.monthlyRent || ''}
+                          onChange={(e) => handleRentRollChange(index, 'monthlyRent', e.target.value)}
+                          InputProps={{ startAdornment: '$' }}
+                          error={!!getError('monthlyRent')}
+                          helperText={getError('monthlyRent')}
+                        />
                     </TableCell>
                     <TableCell>
                       <TextField
@@ -309,12 +323,13 @@ const IncomeStatements = ({ formik }) => {
                       </IconButton>
                     </TableCell>
                   </TableRow>
-                ))}
+                  );
+                })}
               </TableBody>
             </Table>
           </TableContainer>
           
-          {(formik.values.rentRoll || []).length === 0 && (
+          {(formik.values.income.rentRoll || []).length === 0 && (
             <Typography variant="body2" color="text.secondary" align="center" sx={{ my: 2 }}>
               No rent roll entries. Click "Add Unit" to add tenants.
             </Typography>
@@ -326,12 +341,12 @@ const IncomeStatements = ({ formik }) => {
           <TextField
             fullWidth
             id="incomeNotes"
-            name={fieldName('incomeNotes')}
+            name="income.incomeNotes"
             label="Additional Income Notes"
             multiline
             rows={3}
-            value={values.incomeNotes  || ''}
-            onChange={handleChange}
+            value={formik.values.income.incomeNotes || ''}
+            onChange={formik.handleChange}
           />
         </Grid>
       </Grid>

@@ -32,9 +32,13 @@ const UploadStep = ({ onFileUpload }) => {
       return;
     }
     
-    // Validate file type
-    if (!selectedFile.name.toLowerCase().endsWith('.csv')) {
-      setError('Please upload a CSV file');
+    // Validate file type - accept CSV and Excel files
+    const fileName = selectedFile.name.toLowerCase();
+    const validExtensions = ['.csv', '.xlsx', '.xls'];
+    const isValidFile = validExtensions.some(ext => fileName.endsWith(ext));
+    
+    if (!isValidFile) {
+      setError('Please upload a CSV or Excel file (.csv, .xlsx, .xls)');
       return;
     }
     
@@ -74,9 +78,9 @@ const UploadStep = ({ onFileUpload }) => {
 
   return (
     <Box>
-      <Typography variant="h6" gutterBottom>Upload CSV File</Typography>
+      <Typography variant="h6" gutterBottom>Upload CSV or Excel File</Typography>
       <Typography variant="body2" color="text.secondary" paragraph>
-        Upload a CSV file containing property data to import as comparables. 
+        Upload a CSV or Excel file containing property data to import as comparables. 
         Make sure your file includes headers and is properly formatted.
       </Typography>
       
@@ -99,7 +103,7 @@ const UploadStep = ({ onFileUpload }) => {
       >
         <input
           type="file"
-          accept=".csv"
+          accept=".csv, .xlsx, .xls, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel, text/csv"
           ref={fileInputRef}
           onChange={handleFileChange}
           style={{ display: 'none' }}
@@ -108,7 +112,7 @@ const UploadStep = ({ onFileUpload }) => {
         <CloudUploadIcon sx={{ fontSize: 40, color: 'primary.main', mb: 2 }} />
         <Typography variant="h6" gutterBottom>Click or drop file here</Typography>
         <Typography variant="body2" color="text.secondary" align="center">
-          Support for CSV files only, maximum size 50MB
+          Support for CSV and Excel files only, maximum size 50MB
         </Typography>
       </Paper>
       
@@ -156,7 +160,7 @@ const UploadStep = ({ onFileUpload }) => {
       <Box sx={{ mb: 2 }}>
         <Typography variant="subtitle1" gutterBottom>Requirements:</Typography>
         <Typography variant="body2" color="text.secondary">
-          • File format must be CSV (comma-separated values)<br />
+          • File format must be CSV (comma-separated values) or Excel (.xlsx, .xls)<br />
           • File must include column headers in the first row<br />
           • Maximum file size is 50 MB<br />
           • Data should be properly formatted (dates, numbers, etc.)<br />
