@@ -1,4 +1,4 @@
-import React, { createContext, useState, useEffect, useContext } from 'react';
+import React, { createContext, useState, useEffect, useContext, useCallback } from 'react';
 
 const AppraisalContext = createContext();
 
@@ -16,12 +16,20 @@ export const AppraisalProvider = ({ children }) => {
   });
 
   // Validate the subjectProperty structure on initial load to handle legacy data formats.
+  const resetAppraisal = useCallback(() => {
+    setSubjectProperty(null);
+    setSelectedComps([]);
+    localStorage.removeItem('subjectProperty');
+    localStorage.removeItem('selectedComps');
+  }, []); // No dependencies needed
+
   useEffect(() => {
+    // Reset appraisal if subjectProperty is malformed (legacy compatibility)
     if (subjectProperty && !subjectProperty.identification) {
       console.warn('Legacy subjectProperty format detected. Resetting appraisal state.');
       resetAppraisal();
     }
-  }, [subjectProperty, resetAppraisal]); // Add missing dependencies
+  }, [subjectProperty, resetAppraisal]); // Dependencies are now properly defined
 
   const [selectedComps, setSelectedComps] = useState(() => {
     try {
@@ -71,13 +79,6 @@ export const AppraisalProvider = ({ children }) => {
       // Remove by property ID (fallback)
       setSelectedComps(prevComps => prevComps.filter(c => (c.property?.id || c.id) !== identifier));
     }
-  };
-
-  const resetAppraisal = () => {
-    setSubjectProperty(null);
-    setSelectedComps([]);
-    localStorage.removeItem('subjectProperty');
-    localStorage.removeItem('selectedComps');
   };
 
   const value = {

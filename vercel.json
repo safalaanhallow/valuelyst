@@ -19,6 +19,18 @@
       "dest": "/backend/test-minimal.js"
     },
     {
+      "src": "/favicon.ico",
+      "dest": "/client/favicon.ico"
+    },
+    {
+      "src": "/manifest.json", 
+      "dest": "/client/manifest.json"
+    },
+    {
+      "src": "/static/(.*)",
+      "dest": "/client/static/$1"
+    },
+    {
       "src": "/(.*)",
       "dest": "/client/$1"
     }
